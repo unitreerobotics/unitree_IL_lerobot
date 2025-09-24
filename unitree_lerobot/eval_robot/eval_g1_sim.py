@@ -136,18 +136,14 @@ def eval_policy(
                 loop_start_time = time.perf_counter()
 
                 # 1. Get Observations
-                observation, current_arm_q = process_images_and_observations(
-                    tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam, arm_ctrl
-                )
+                observation, current_arm_q = process_images_and_observations(tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam, arm_ctrl)
                 left_ee_state = right_ee_state = np.array([])
                 if cfg.ee:
                     with ee_shared_mem["lock"]:
                         full_state = np.array(ee_shared_mem["state"][:])
                         left_ee_state = full_state[:ee_dof]
                         right_ee_state = full_state[ee_dof:]
-                state_tensor = torch.from_numpy(
-                    np.concatenate((current_arm_q, left_ee_state, right_ee_state), axis=0)
-                ).float()
+                state_tensor = torch.from_numpy(np.concatenate((current_arm_q, left_ee_state, right_ee_state), axis=0)).float()
                 observation["observation.state"] = state_tensor
                 # 2. Get Action from Policy
                 action = predict_action(
@@ -179,7 +175,7 @@ def eval_policy(
                 # save data
                 if cfg.save_data:
                     process_data_add(episode_writer, observation, current_arm_q, full_state, action, arm_dof, ee_dof)
-                    # 通过字典引用传递reward统计信息
+
                     is_success(
                         sim_reward_subscriber,
                         episode_writer,

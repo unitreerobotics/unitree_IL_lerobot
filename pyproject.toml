@@ -28,7 +28,7 @@ dependencies = [
 packages = ["unitree_lerobot"]
 
 [tool.ruff]
-line-length = 120
+line-length = 180
 target-version = "py310"
 exclude = ["build", "venv", "__pycache__"]
 fix = true
