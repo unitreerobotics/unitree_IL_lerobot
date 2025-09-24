@@ -190,9 +190,7 @@ python src/lerobot/scripts/train.py \
 # --arm: 机器人手臂的型号，例如 G1_29、G1_23。
 # --ee: 末端执行器的类型，例如 dex3、dex1、inspire1、brainco。
 # --visualization: 是否启用可视化；设置为 true 表示启用。
-# --send_real_robot: 是否将指令发送到真实机器人。
-# --sim: 是否在 unitree_sim_isaaclab 仿真环境中进行推理。
-# --save_data 用于在模型推理过程中进行数据录制，目前只能在sim环境中使用
+# --send_real_robot: 是否将指令发送到真实机器人
 
 python unitree_lerobot/eval_robot/eval_g1.py  \
     --policy.path=unitree_lerobot/lerobot/outputs/train/2025-03-25/22-11-16_diffusion/checkpoints/100000/pretrained_model \
@@ -202,8 +200,24 @@ python unitree_lerobot/eval_robot/eval_g1.py  \
     --frequency=30 \
     --arm="G1_29" \
     --ee="dex3" \
+    --visualization=true 
+
+如果你想在 unitree_sim_isaaclab 仿真环境下进行推理测试，请执行:
+# --save_data 用于在模型推理过程中进行数据录制，目前只能在sim环境中使用
+# --task_dir: 数据存放的目录
+# --max_episodes： 每一次最多推理的次数，超过次次数默认任务执行失败
+python unitree_lerobot/eval_robot/eval_g1_sim.py  \
+    --policy.path=unitree_lerobot/lerobot/outputs/train/2025-03-25/22-11-16_diffusion/checkpoints/100000/pretrained_model \
+    --repo_id=unitreerobotics/G1_Dex3_ToastedBread_Dataset \
+    --root="" \
+    --episodes=0 \
+    --frequency=30 \
+    --arm="G1_29" \
+    --ee="dex3" \
     --visualization=true \
-    --sim=false
+    --save_data=false \
+    --task_dir="./data" \
+    --max_episodes=1200
 
 # If you want to evaluate the model's performance on the dataset, use the command below for testing
 python unitree_lerobot/eval_robot/eval_g1_dataset.py  \

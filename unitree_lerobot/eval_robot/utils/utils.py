@@ -121,13 +121,9 @@ class EvalRealConfig:
     # Mode flags
     motion: bool = False
     headless: bool = False
-    sim: bool = False
     visualization: bool = False
     send_real_robot: bool = False
     use_dataset: bool = False
-    save_data: bool = False
-    task_dir: str = "./data"
-    max_episodes: int = 1200
     def __post_init__(self):
         # HACK: We parse again the cli args here to get the pretrained path if there was one.
         policy_path = parser.get_path_arg("policy")

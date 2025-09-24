@@ -210,8 +210,7 @@ To test your trained model on a real robot, you can use the eval_g1.py script lo
 # --ee: The type of end-effector, (e.g., dex3, dex1, inspire1, brainco).
 # --visualization: Whether to enable visualization; setting it to true enables it.
 # --send_real_robot: Whether to send commands to the real robot.
-# --sim: Whether to perform inference in the unitree_sim_isaaclab simulation environment.
-# --save_data: Allows recording data while running inference. At present, this option is limited to the sim environment. 
+
 
 python unitree_lerobot/eval_robot/eval_g1.py  \
     --policy.path=unitree_lerobot/lerobot/outputs/train/2025-03-25/22-11-16_diffusion/checkpoints/100000/pretrained_model \
@@ -222,7 +221,25 @@ python unitree_lerobot/eval_robot/eval_g1.py  \
     --arm="G1_29" \
     --ee="dex3" \
     --visualization=true \
-    --sim=false
+
+If you want to run inference tests in the unitree_sim_isaaclab simulation environment, please execute:
+
+# --save_data: Allows recording data while running inference. At present, this option is limited to the sim environment. 
+# --task_dir: the directory where data is stored
+# --max_episodes: the maximum number of inference runs per task; if exceeded, the task is considered failed by default
+
+python unitree_lerobot/eval_robot/eval_g1_sim.py  \
+    --policy.path=unitree_lerobot/lerobot/outputs/train/2025-03-25/22-11-16_diffusion/checkpoints/100000/pretrained_model \
+    --repo_id=unitreerobotics/G1_Dex3_ToastedBread_Dataset \
+    --root="" \
+    --episodes=0 \
+    --frequency=30 \
+    --arm="G1_29" \
+    --ee="dex3" \
+    --visualization=true \
+    --save_data=false \
+    --task_dir="./data" \
+    --max_episodes=1200
 
 # If you want to evaluate the model's performance on the dataset, use the command below for testing
 python unitree_lerobot/eval_robot/eval_g1_dataset.py  \

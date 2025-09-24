@@ -8,3 +8,5 @@ unitree_lerobot.egg-info
 cam_high.jpg
 cam_right_wrist.jpg
 cam_left_wrist.jpg
+data/
+./data

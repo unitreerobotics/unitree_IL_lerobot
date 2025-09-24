@@ -71,7 +71,7 @@ EE_CONFIG: Dict[str, Dict[str, Any]] = {
 def setup_image_client(args: argparse.Namespace) -> Dict[str, Any]:
     """Initializes and starts the image client and shared memory."""
     # image client: img_config should be the same as the configuration in image_server.py (of Robot's development computing unit)
-    if args.sim:
+    if getattr(args, "sim", False):
         img_config = {
             "fps": 30,
             "head_camera_type": "opencv",
@@ -114,7 +114,7 @@ def setup_image_client(args: argparse.Namespace) -> Dict[str, Any]:
     tv_img_shm = shared_memory.SharedMemory(create=True, size=np.prod(tv_img_shape) * np.uint8().itemsize)
     tv_img_array = np.ndarray(tv_img_shape, dtype=np.uint8, buffer=tv_img_shm.buf)
 
-    if WRIST and args.sim:
+    if WRIST and getattr(args, "sim", False):
         wrist_img_shape = (img_config["wrist_camera_image_shape"][0], img_config["wrist_camera_image_shape"][1] * 2, 3)
         wrist_img_shm = shared_memory.SharedMemory(create=True, size=np.prod(wrist_img_shape) * np.uint8().itemsize)
         wrist_img_array = np.ndarray(wrist_img_shape, dtype=np.uint8, buffer=wrist_img_shm.buf)
@@ -125,7 +125,7 @@ def setup_image_client(args: argparse.Namespace) -> Dict[str, Any]:
             wrist_img_shm_name=wrist_img_shm.name,
             server_address="127.0.0.1",
         )
-    elif WRIST and not args.sim:
+    elif WRIST and not getattr(args, "sim", False):
         wrist_img_shape = (img_config["wrist_camera_image_shape"][0], img_config["wrist_camera_image_shape"][1] * 2, 3)
         wrist_img_shm = shared_memory.SharedMemory(create=True, size=np.prod(wrist_img_shape) * np.uint8().itemsize)
         wrist_img_array = np.ndarray(wrist_img_shape, dtype=np.uint8, buffer=wrist_img_shm.buf)
@@ -166,7 +166,8 @@ def setup_robot_interface(args: argparse.Namespace) -> Dict[str, Any]:
     # ---------- Arm ----------
     arm_spec = ARM_CONFIG[args.arm]
     arm_ik = arm_spec["ik_solver"]()
-    arm_ctrl = arm_spec["controller"](motion_mode=args.motion, simulation_mode=args.sim)
+    is_sim = getattr(args, "sim", False)
+    arm_ctrl = arm_spec["controller"](motion_mode=args.motion, simulation_mode=is_sim)
 
     # ---------- End Effector (optional) ----------
     ee_ctrl, ee_shared_mem, ee_dof = None, {}, 0
@@ -187,7 +188,7 @@ def setup_robot_interface(args: argparse.Namespace) -> Dict[str, Any]:
 
         state_arr, action_arr = Array("d", out_len, lock=False), Array("d", out_len, lock=False)
 
-        ee_ctrl = spec["controller"](left_in, right_in, data_lock, state_arr, action_arr, simulation_mode=args.sim)
+        ee_ctrl = spec["controller"](left_in, right_in, data_lock, state_arr, action_arr, simulation_mode=is_sim)
 
         ee_shared_mem = {
             "left": left_in,
@@ -198,10 +199,8 @@ def setup_robot_interface(args: argparse.Namespace) -> Dict[str, Any]:
         }
 
     # ---------- Simulation helpers (optional) ----------
-    sim_state_subscriber = None
-    sim_reward_subscriber = None
     episode_writer = None
-    if getattr(args, "sim", False):
+    if is_sim:
         reset_pose_publisher = ChannelPublisher("rt/reset_pose/cmd", String_)
         reset_pose_publisher.Init()
         from unitree_lerobot.eval_robot.utils.sim_state_topic import start_sim_state_subscribe, start_sim_reward_subscribe
@@ -210,7 +209,18 @@ def setup_robot_interface(args: argparse.Namespace) -> Dict[str, Any]:
         sim_reward_subscriber = start_sim_reward_subscribe()
         if getattr(args, "save_data", False) and getattr(args, "task_dir", None):
             episode_writer = EpisodeWriter(args.task_dir, frequency=30, image_size=[640, 480])
-
+        return {
+            "arm_ctrl": arm_ctrl,
+            "arm_ik": arm_ik,
+            "ee_ctrl": ee_ctrl,
+            "ee_shared_mem": ee_shared_mem,
+            "arm_dof": int(arm_spec["dof"]),
+            "ee_dof": ee_dof,
+            "sim_state_subscriber": sim_state_subscriber,
+            "sim_reward_subscriber": sim_reward_subscriber,
+            "episode_writer": episode_writer,
+            "reset_pose_publisher": reset_pose_publisher,
+        }
     return {
         "arm_ctrl": arm_ctrl,
         "arm_ik": arm_ik,
@@ -218,12 +228,7 @@ def setup_robot_interface(args: argparse.Namespace) -> Dict[str, Any]:
         "ee_shared_mem": ee_shared_mem,
         "arm_dof": int(arm_spec["dof"]),
         "ee_dof": ee_dof,
-        "sim_state_subscriber": sim_state_subscriber,
-        "sim_reward_subscriber": sim_reward_subscriber,
-        "episode_writer": episode_writer,
-        "reset_pose_publisher": reset_pose_publisher,
-    }
-
+        }
 
 def process_images_and_observations(
     tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam, arm_ctrl
@@ -250,101 +255,7 @@ def process_images_and_observations(
     return observation, current_arm_q
 
 
-# for simulation
-
 def publish_reset_category(category: int,publisher): # Scene Reset signal
     msg = String_(data=str(category))
     publisher.Write(msg)
     logger_mp.info(f"published reset category: {category}")
-
-def process_data_add(episode_writer, observation_image, current_arm_q,ee_state, action,arm_dof,ee_dof):
-    if episode_writer is None:
-        return
-    if observation_image is not None and current_arm_q is not None and ee_state is not None and action is not None and arm_dof is not None and ee_dof is not None:
-        # Convert tensors to numpy arrays for JSON serialization
-        if torch.is_tensor(current_arm_q):
-            current_arm_q = current_arm_q.detach().cpu().numpy()
-        if torch.is_tensor(ee_state):
-            ee_state = ee_state.detach().cpu().numpy()
-        if torch.is_tensor(action):
-            action = action.detach().cpu().numpy()
-        colors = {}
-        i=0
-        for key, value in observation_image.items():
-            if "images" in key:
-                if value is not None:
-                    # Convert PyTorch tensor to numpy array for OpenCV compatibility
-                    if torch.is_tensor(value):
-                        # Convert tensor to numpy array and ensure correct format for OpenCV
-                        img_array = value.detach().cpu().numpy()
-                        # If the image is in CHW format (channels first), convert to HWC format (channels last)
-                        if img_array.ndim == 3 and img_array.shape[0] in [1, 3, 4]:
-                            img_array = np.transpose(img_array, (1, 2, 0))
-                        # Ensure the array is in uint8 format for OpenCV
-                        if img_array.dtype != np.uint8:
-                            if img_array.max() <= 1.0:  # Normalized values [0, 1]
-                                img_array = (img_array * 255).astype(np.uint8)
-                            else:  # Values already in [0, 255] range
-                                img_array = img_array.astype(np.uint8)
-                                                # Keep original RGB format - no color channel conversion needed
-                        colors[f"color_{i}"] = img_array
-                    else:
-                        colors[f"color_{i}"] = value
-                    i += 1
-        states = {
-            "left_arm": {                                                                    
-                "qpos":   current_arm_q[:arm_dof//2].tolist(),    # numpy.array -> list
-                "qvel":   [],                          
-                "torque": [],                        
-            }, 
-            "right_arm": {                                                                    
-                "qpos":   current_arm_q[arm_dof//2:].tolist(),       
-                "qvel":   [],                          
-                "torque": [],                         
-            },                        
-            "left_ee": {                                                                    
-                "qpos":   ee_state[:ee_dof].tolist(),           
-                "qvel":   [],                           
-                "torque": [],                          
-            }, 
-            "right_ee": {                                                                    
-                "qpos":   ee_state[ee_dof:].tolist(),       
-                "qvel":   [],                           
-                "torque": [],  
-            }, 
-            "body": {
-                "qpos": [],
-            }, 
-        }
-        actions = {
-            "left_arm": {                                   
-                "qpos":   action[:arm_dof//2].tolist(),       
-                "qvel":   [],       
-                "torque": [],      
-            }, 
-            "right_arm": {                                   
-                "qpos":   action[arm_dof//2:].tolist(),       
-                "qvel":   [],       
-                "torque": [],       
-            },                         
-            "left_ee": {                                   
-                "qpos":   action[arm_dof : arm_dof + ee_dof].tolist(),       
-                "qvel":   [],       
-                "torque": [],       
-            }, 
-            "right_ee": {                                   
-                "qpos":   action[arm_dof + ee_dof : arm_dof + 2 * ee_dof].tolist(),       
-                "qvel":   [],       
-                "torque": [], 
-            }, 
-            "body": {
-                "qpos": [],
-            }, 
-        }
-        episode_writer.add_item(colors, states=states, actions=actions)
-
-def process_data_save(episode_writer,result):
-    """Processes data and saves it."""
-    if episode_writer is None:
-        return
-    episode_writer.save_episode(result)
