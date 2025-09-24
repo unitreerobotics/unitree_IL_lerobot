@@ -1,5 +1,5 @@
 from multiprocessing import shared_memory, Value, Array, Lock
-from typing import Any, Dict
+from typing import Any
 import numpy as np
 import argparse
 import threading
@@ -37,7 +37,7 @@ ARM_CONFIG = {
 }
 
 # Configuration for end-effectors
-EE_CONFIG: Dict[str, Dict[str, Any]] = {
+EE_CONFIG: dict[str, dict[str, Any]] = {
     "dex3": {
         "controller": Dex3_1_Controller,
         "dof": 7,
@@ -68,7 +68,7 @@ EE_CONFIG: Dict[str, Dict[str, Any]] = {
 }
 
 
-def setup_image_client(args: argparse.Namespace) -> Dict[str, Any]:
+def setup_image_client(args: argparse.Namespace) -> dict[str, Any]:
     """Initializes and starts the image client and shared memory."""
     # image client: img_config should be the same as the configuration in image_server.py (of Robot's development computing unit)
     if getattr(args, "sim", False):
@@ -155,11 +155,11 @@ def setup_image_client(args: argparse.Namespace) -> Dict[str, Any]:
     }
 
 
-def _resolve_out_len(spec: Dict[str, Any]) -> int:
+def _resolve_out_len(spec: dict[str, Any]) -> int:
     return int(spec.get("out_len", 2 * int(spec["dof"])))
 
 
-def setup_robot_interface(args: argparse.Namespace) -> Dict[str, Any]:
+def setup_robot_interface(args: argparse.Namespace) -> dict[str, Any]:
     """
     Initializes robot controllers and IK solvers based on configuration.
     """
@@ -203,7 +203,10 @@ def setup_robot_interface(args: argparse.Namespace) -> Dict[str, Any]:
     if is_sim:
         reset_pose_publisher = ChannelPublisher("rt/reset_pose/cmd", String_)
         reset_pose_publisher.Init()
-        from unitree_lerobot.eval_robot.utils.sim_state_topic import start_sim_state_subscribe, start_sim_reward_subscribe
+        from unitree_lerobot.eval_robot.utils.sim_state_topic import (
+            start_sim_state_subscribe,
+            start_sim_reward_subscribe,
+        )
 
         sim_state_subscriber = start_sim_state_subscribe()
         sim_reward_subscriber = start_sim_reward_subscribe()
@@ -228,7 +231,8 @@ def setup_robot_interface(args: argparse.Namespace) -> Dict[str, Any]:
         "ee_shared_mem": ee_shared_mem,
         "arm_dof": int(arm_spec["dof"]),
         "ee_dof": ee_dof,
-        }
+    }
+
 
 def process_images_and_observations(
     tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam, arm_ctrl
@@ -248,14 +252,14 @@ def process_images_and_observations(
         "observation.images.cam_left_high": torch.from_numpy(left_top_cam),
         "observation.images.cam_right_high": torch.from_numpy(right_top_cam) if is_binocular else None,
         "observation.images.cam_left_wrist": torch.from_numpy(left_wrist_cam) if has_wrist_cam else None,
-        "observation.images.cam_right_wrist": torch.from_numpy(right_wrist_cam) if has_wrist_cam  else None,
+        "observation.images.cam_right_wrist": torch.from_numpy(right_wrist_cam) if has_wrist_cam else None,
     }
     current_arm_q = arm_ctrl.get_current_dual_arm_q()
 
     return observation, current_arm_q
 
 
-def publish_reset_category(category: int,publisher): # Scene Reset signal
+def publish_reset_category(category: int, publisher):  # Scene Reset signal
     msg = String_(data=str(category))
     publisher.Write(msg)
     logger_mp.info(f"published reset category: {category}")

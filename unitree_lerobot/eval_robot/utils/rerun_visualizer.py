@@ -1,6 +1,6 @@
 import torch
 from datetime import datetime
-from typing import Dict, Any, Tuple, Optional
+from typing import Any
 
 import rerun as rr
 import rerun.blueprint as rrb
@@ -16,7 +16,7 @@ class RerunLogger:
         self,
         prefix: str = "",
         memory_limit: str = "200MB",
-        idxrangeboundary: Optional[int] = 300,
+        idxrangeboundary: int | None = 300,
     ):
         """Initializes the Rerun logger."""
         # Use a descriptive name for the Rerun recording
@@ -28,7 +28,7 @@ class RerunLogger:
         self.idxrangeboundary = idxrangeboundary
 
         # --- Internal cache for discovered keys ---
-        self._image_keys: Tuple[str, ...] = ()
+        self._image_keys: tuple[str, ...] = ()
         self._state_key: str = ""
         self._action_key: str = ""
         self._index_key: str = "index"
@@ -37,7 +37,7 @@ class RerunLogger:
 
         self.current_episode = -1
 
-    def _initialize_from_data(self, step_data: Dict[str, Any]):
+    def _initialize_from_data(self, step_data: dict[str, Any]):
         """Inspects the first data dictionary to discover components and set up the blueprint."""
         print("RerunLogger: First data packet received. Auto-configuring...")
 
@@ -115,7 +115,7 @@ class RerunLogger:
         rr.send_blueprint(grid)
         self.blueprint_sent = True
 
-    def log_step(self, step_data: Dict[str, Any]):
+    def log_step(self, step_data: dict[str, Any]):
         """Logs a single step dictionary from your dataset."""
         if not self.blueprint_sent:
             self._initialize_from_data(step_data)
@@ -155,7 +155,7 @@ class RerunLogger:
 
 
 def visualization_data(idx, observation, state, action, online_logger):
-    item_data: Dict[str, Any] = {
+    item_data: dict[str, Any] = {
         "index": torch.tensor(idx),
         "observation.state": state,
         "action": action,

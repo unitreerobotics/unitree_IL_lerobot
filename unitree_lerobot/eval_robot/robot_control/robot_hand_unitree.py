@@ -12,7 +12,6 @@ from enum import IntEnum
 import time
 import threading
 from multiprocessing import Process, Value, Array
-from unitree_lerobot.eval_robot.utils.weighted_moving_filter import WeightedMovingFilter
 
 import logging_mp
 
@@ -155,8 +154,8 @@ class Dex3_1_Controller:
     ):
         self.running = True
 
-        left_q_target = np.full(Dex3_Num_Motors, 0)
-        right_q_target = np.full(Dex3_Num_Motors, 0)
+        # left_q_target = np.full(Dex3_Num_Motors, 0)
+        # right_q_target = np.full(Dex3_Num_Motors, 0)
 
         q = 0.0
         dq = 0.0
@@ -356,7 +355,6 @@ class Dex1_1_Gripper_Controller:
         RIGHT_MAPPED_MIN = 0.0  # The minimum initial motor position when the gripper closes at startup.
         # The maximum initial motor position when the gripper closes before calibration (with the rail stroke calculated as 0.6 cm/rad * 9 rad = 5.4 cm).
 
-
         dq = 0.0
         tau = 0.0
         kp = 5.00
@@ -387,7 +385,6 @@ class Dex1_1_Gripper_Controller:
                 # get current dual gripper motor state
                 dual_gripper_state = np.array([left_gripper_state_value.value, right_gripper_state_value.value])
                 dual_gripper_action = np.array([left_gripper_value, right_gripper_value])
-
 
                 if dual_gripper_state_out and dual_gripper_action_out:
                     with dual_hand_data_lock:

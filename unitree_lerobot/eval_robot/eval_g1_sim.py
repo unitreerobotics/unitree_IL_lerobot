@@ -27,7 +27,6 @@ from unitree_lerobot.eval_robot.make_robot import (
     setup_image_client,
     setup_robot_interface,
     process_images_and_observations,
-    publish_reset_category
 )
 from unitree_lerobot.eval_robot.utils.utils import (
     cleanup_resources,
@@ -38,7 +37,6 @@ from unitree_lerobot.eval_robot.utils.utils import (
 from unitree_lerobot.eval_robot.utils.sim_savedata_utils import (
     EvalRealConfig,
     process_data_add,
-    process_data_save,
     is_success,
 )
 from unitree_lerobot.eval_robot.utils.rerun_visualizer import RerunLogger, visualization_data
@@ -47,7 +45,6 @@ import logging_mp
 
 logging_mp.basic_config(level=logging_mp.INFO)
 logger_mp = logging_mp.get_logger(__name__)
-
 
 
 def eval_policy(
@@ -71,8 +68,29 @@ def eval_policy(
         robot_interface = setup_robot_interface(cfg)
 
         # Unpack interfaces for convenience
-        arm_ctrl, arm_ik, ee_shared_mem, arm_dof, ee_dof, sim_state_subscriber, sim_reward_subscriber, episode_writer, reset_pose_publisher = (
-            robot_interface[key] for key in ["arm_ctrl", "arm_ik", "ee_shared_mem", "arm_dof", "ee_dof", "sim_state_subscriber", "sim_reward_subscriber", "episode_writer", "reset_pose_publisher"]
+        (
+            arm_ctrl,
+            arm_ik,
+            ee_shared_mem,
+            arm_dof,
+            ee_dof,
+            sim_state_subscriber,
+            sim_reward_subscriber,
+            episode_writer,
+            reset_pose_publisher,
+        ) = (
+            robot_interface[key]
+            for key in [
+                "arm_ctrl",
+                "arm_ik",
+                "ee_shared_mem",
+                "arm_dof",
+                "ee_dof",
+                "sim_state_subscriber",
+                "sim_reward_subscriber",
+                "episode_writer",
+                "reset_pose_publisher",
+            ]
         )
         tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam = (
             image_info[key]
@@ -85,7 +103,6 @@ def eval_policy(
                 "has_wrist_cam",
             ]
         )
-        
 
         # Get initial pose from the first step of the dataset
         from_idx = dataset.episode_data_index["from"][0].item()
@@ -95,17 +112,15 @@ def eval_policy(
         user_input = input("Enter 's' to initialize the robot and start the evaluation: ")
         idx = 0
         print(f"user_input: {user_input}")
-        full_state=None
+        full_state = None
 
         # 方法1: 使用字典实现引用传递
         reward_stats = {
-            'reward_sum': 0.0,
-            'episode_num': 0.0,
+            "reward_sum": 0.0,
+            "episode_num": 0.0,
         }
-        
-        
+
         if user_input.lower() == "s":
-        
             # "The initial positions of the robot's arm and fingers take the initial positions during data recording."
             logger_mp.info("Initializing robot to starting pose...")
             tau = robot_interface["arm_ik"].solve_tau(init_arm_pose)
@@ -116,7 +131,7 @@ def eval_policy(
             logger_mp.info(f"Starting evaluation loop at {cfg.frequency} Hz.")
             while True:
                 if cfg.save_data:
-                    if reward_stats['episode_num'] == 0:
+                    if reward_stats["episode_num"] == 0:
                         episode_writer.create_episode()
                 loop_start_time = time.perf_counter()
 
@@ -130,7 +145,9 @@ def eval_policy(
                         full_state = np.array(ee_shared_mem["state"][:])
                         left_ee_state = full_state[:ee_dof]
                         right_ee_state = full_state[ee_dof:]
-                state_tensor = torch.from_numpy(np.concatenate((current_arm_q, left_ee_state, right_ee_state), axis=0)).float()
+                state_tensor = torch.from_numpy(
+                    np.concatenate((current_arm_q, left_ee_state, right_ee_state), axis=0)
+                ).float()
                 observation["observation.state"] = state_tensor
                 # 2. Get Action from Policy
                 action = predict_action(
@@ -147,7 +164,6 @@ def eval_policy(
                 tau = arm_ik.solve_tau(arm_action)
                 arm_ctrl.ctrl_dual_arm(arm_action, tau)
 
-
                 if cfg.ee:
                     ee_action_start_idx = arm_dof
                     left_ee_action = action_np[ee_action_start_idx : ee_action_start_idx + ee_dof]
@@ -162,17 +178,25 @@ def eval_policy(
                         ee_shared_mem["right"].value = to_scalar(right_ee_action)
                 # save data
                 if cfg.save_data:
-                    process_data_add(episode_writer, observation, current_arm_q,full_state, action,arm_dof,ee_dof)
+                    process_data_add(episode_writer, observation, current_arm_q, full_state, action, arm_dof, ee_dof)
                     # 通过字典引用传递reward统计信息
-                    is_success(sim_reward_subscriber,episode_writer,reset_pose_publisher,policy,cfg,reward_stats,init_arm_pose,robot_interface)
+                    is_success(
+                        sim_reward_subscriber,
+                        episode_writer,
+                        reset_pose_publisher,
+                        policy,
+                        cfg,
+                        reward_stats,
+                        init_arm_pose,
+                        robot_interface,
+                    )
 
                 if cfg.visualization:
                     visualization_data(idx, observation, state_tensor.numpy(), action_np, rerun_logger)
                 idx += 1
-                reward_stats['episode_num'] = reward_stats['episode_num'] + 1
+                reward_stats["episode_num"] = reward_stats["episode_num"] + 1
                 # Maintain frequency
                 time.sleep(max(0, (1.0 / cfg.frequency) - (time.perf_counter() - loop_start_time)))
-
 
     except Exception as e:
         logger_mp.info(f"An error occurred: {e}")
@@ -180,12 +204,13 @@ def eval_policy(
         if image_info:
             cleanup_resources(image_info)
         # Clean up sim state subscriber if it exists
-        if 'sim_state_subscriber' in locals() and sim_state_subscriber:
+        if "sim_state_subscriber" in locals() and sim_state_subscriber:
             sim_state_subscriber.stop_subscribe()
             logger_mp.info("SimStateSubscriber cleaned up")
-        if 'sim_reward_subscriber' in locals() and sim_reward_subscriber:
+        if "sim_reward_subscriber" in locals() and sim_reward_subscriber:
             sim_reward_subscriber.stop_subscribe()
             logger_mp.info("SimRewardSubscriber cleaned up")
+
 
 @parser.wrap()
 def eval_main(cfg: EvalRealConfig):

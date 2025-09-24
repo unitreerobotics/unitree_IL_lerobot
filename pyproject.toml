@@ -40,3 +40,7 @@ show-fixes = true
 
 [tool.ruff.lint.per-file-ignores]
 "constants.py" = ["N815"]
+
+[tool.bandit]
+exclude_dirs = []
+skips = ["B101", "B311", "B404", "B603", "B615"]

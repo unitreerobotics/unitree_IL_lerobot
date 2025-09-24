@@ -28,7 +28,7 @@ from unitree_lerobot.eval_robot.utils.utils import (
     predict_action,
     to_list,
     to_scalar,
-    EvalRealConfig
+    EvalRealConfig,
 )
 from unitree_lerobot.eval_robot.make_robot import setup_robot_interface
 from unitree_lerobot.eval_robot.utils.rerun_visualizer import RerunLogger, visualization_data

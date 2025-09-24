@@ -1,7 +1,6 @@
 import numpy as np
 import torch
-import argparse
-from typing import Any, Dict
+from typing import Any
 from contextlib import nullcontext
 from copy import copy
 import logging
@@ -49,12 +48,12 @@ def predict_action(
         for name in observation:
             if not use_dataset:
                 # Skip non-tensor observations (like task strings)
-                if not hasattr(observation[name], 'unsqueeze'):
+                if not hasattr(observation[name], "unsqueeze"):
                     continue
                 if "images" in name:
                     observation[name] = observation[name].type(torch.float32) / 255
                     observation[name] = observation[name].permute(2, 0, 1).contiguous()
-        
+
             observation[name] = observation[name].unsqueeze(0).to(device)
 
         observation["task"] = [task if task else ""]
@@ -71,17 +70,18 @@ def predict_action(
 
     return action
 
+
 def reset_policy(policy: PreTrainedPolicy):
     policy.reset()
 
-def cleanup_resources(image_info: Dict[str, Any]):
+
+def cleanup_resources(image_info: dict[str, Any]):
     """Safely close and unlink shared memory resources."""
     logger_mp.info("Cleaning up shared memory resources.")
     for shm in image_info["shm_resources"]:
         if shm:
             shm.close()
             shm.unlink()
-
 
 
 def to_list(x):
@@ -104,7 +104,6 @@ def to_scalar(x):
     return float(x)
 
 
-
 @dataclass
 class EvalRealConfig:
     repo_id: str
@@ -124,6 +123,7 @@ class EvalRealConfig:
     visualization: bool = False
     send_real_robot: bool = False
     use_dataset: bool = False
+
     def __post_init__(self):
         # HACK: We parse again the cli args here to get the pretrained path if there was one.
         policy_path = parser.get_path_arg("policy")

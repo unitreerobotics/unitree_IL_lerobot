@@ -78,7 +78,6 @@ def eval_policy(
                 "has_wrist_cam",
             ]
         )
-        
 
         # Get initial pose from the first step of the dataset
         from_idx = dataset.episode_data_index["from"][0].item()
@@ -88,7 +87,7 @@ def eval_policy(
         user_input = input("Enter 's' to initialize the robot and start the evaluation: ")
         idx = 0
         print(f"user_input: {user_input}")
-        full_state=None
+        full_state = None
         if user_input.lower() == "s":
             # "The initial positions of the robot's arm and fingers take the initial positions during data recording."
             logger_mp.info("Initializing robot to starting pose...")
@@ -109,7 +108,9 @@ def eval_policy(
                         full_state = np.array(ee_shared_mem["state"][:])
                         left_ee_state = full_state[:ee_dof]
                         right_ee_state = full_state[ee_dof:]
-                state_tensor = torch.from_numpy(np.concatenate((current_arm_q, left_ee_state, right_ee_state), axis=0)).float()
+                state_tensor = torch.from_numpy(
+                    np.concatenate((current_arm_q, left_ee_state, right_ee_state), axis=0)
+                ).float()
                 observation["observation.state"] = state_tensor
                 # 2. Get Action from Policy
                 action = predict_action(
@@ -125,7 +126,6 @@ def eval_policy(
                 arm_action = action_np[:arm_dof]
                 tau = arm_ik.solve_tau(arm_action)
                 arm_ctrl.ctrl_dual_arm(arm_action, tau)
-
 
                 if cfg.ee:
                     ee_action_start_idx = arm_dof
@@ -150,6 +150,7 @@ def eval_policy(
     finally:
         if image_info:
             cleanup_resources(image_info)
+
 
 @parser.wrap()
 def eval_main(cfg: EvalRealConfig):
