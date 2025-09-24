@@ -1,8 +1,8 @@
 <div align="center">
   <h1 align="center"> unitree_IL_lerobot </h1>
-  <h3 align="center"> Unitree Robotics </h3> 
+  <h3 align="center"> Unitree Robotics </h3>
   <p align="center">
-    <a href="./README.md"> English </a> | <a href="./docs/README_zh.md">中文</a> 
+    <a href="./README.md"> English </a> | <a href="./docs/README_zh.md">中文</a>
   </p>
     <p align="center">
      <a href="https://discord.gg/ZwcVwxv5rq" target="_blank"><img src="https://img.shields.io/badge/-Discord-5865F2?style=flat&logo=Discord&logoColor=white" alt="Unitree LOGO"></a>
@@ -224,7 +224,7 @@ python unitree_lerobot/eval_robot/eval_g1.py  \
 
 If you want to run inference tests in the unitree_sim_isaaclab simulation environment, please execute:
 
-# --save_data: Allows recording data while running inference. At present, this option is limited to the sim environment. 
+# --save_data: Allows recording data while running inference. At present, this option is limited to the sim environment.
 # --task_dir: the directory where data is stored
 # --max_episodes: the maximum number of inference runs per task; if exceeded, the task is considered failed by default
 
@@ -271,7 +271,7 @@ It is useful for testing and validating the robot's behavior using pre-recorded 
 # --ee              Type of end-effector used (e.g., dex3, dex1, inspire1, brainco)
 # --visualization   Enable or disable visualization during replay (true for enabling, false for disabling)
 
-python unitree_lerobot/eval_robot/repaly_robot.py \
+python unitree_lerobot/eval_robot/replay_robot.py \
     --repo_id=unitreerobotics/G1_Dex3_ToastedBread_Dataset \
     --root="" \
     --episodes=0 \

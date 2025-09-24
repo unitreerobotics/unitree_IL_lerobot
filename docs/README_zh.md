@@ -1,8 +1,8 @@
 <div align="center">
   <h1 align="center"> unitree_IL_lerobot </h1>
-  <h3 align="center"> Unitree Robotics </h3> 
+  <h3 align="center"> Unitree Robotics </h3>
   <p align="center">
-    <a href="../README.md"> English </a> | <a href="./README_zh.md">中文</a> 
+    <a href="../README.md"> English </a> | <a href="./README_zh.md">中文</a>
   </p>
     <p align="center">
      <a href="https://discord.gg/ZwcVwxv5rq" target="_blank"><img src="https://img.shields.io/badge/-Discord-5865F2?style=flat&logo=Discord&logoColor=white" alt="Unitree LOGO"></a>
@@ -200,7 +200,7 @@ python unitree_lerobot/eval_robot/eval_g1.py  \
     --frequency=30 \
     --arm="G1_29" \
     --ee="dex3" \
-    --visualization=true 
+    --visualization=true
 
 如果你想在 unitree_sim_isaaclab 仿真环境下进行推理测试，请执行:
 # --save_data 用于在模型推理过程中进行数据录制，目前只能在sim环境中使用
@@ -248,7 +248,7 @@ python unitree_lerobot/eval_robot/eval_g1_dataset.py  \
 # --ee              使用的末端执行器类型（例如：dex3，dex1，inspire1，brainco）
 # --visualization   是否在重放时启用可视化（true 表示启用，false 表示禁用）
 
-python unitree_lerobot/eval_robot/repaly_robot.py \
+python unitree_lerobot/eval_robot/replay_robot.py \
     --repo_id=unitreerobotics/G1_Dex3_ToastedBread_Dataset \
     --root="" \
     --episodes=0 \
