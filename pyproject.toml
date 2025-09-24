@@ -24,6 +24,9 @@ dependencies = [
     "logging_mp"
 ]
 
+[tool.setuptools]
+packages = ["unitree_lerobot"]
+
 [tool.ruff]
 line-length = 120
 target-version = "py310"
