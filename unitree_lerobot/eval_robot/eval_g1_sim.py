@@ -114,7 +114,6 @@ def eval_policy(
         print(f"user_input: {user_input}")
         full_state = None
 
-        # 方法1: 使用字典实现引用传递
         reward_stats = {
             "reward_sum": 0.0,
             "episode_num": 0.0,
@@ -136,14 +135,18 @@ def eval_policy(
                 loop_start_time = time.perf_counter()
 
                 # 1. Get Observations
-                observation, current_arm_q = process_images_and_observations(tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam, arm_ctrl)
+                observation, current_arm_q = process_images_and_observations(
+                    tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam, arm_ctrl
+                )
                 left_ee_state = right_ee_state = np.array([])
                 if cfg.ee:
                     with ee_shared_mem["lock"]:
                         full_state = np.array(ee_shared_mem["state"][:])
                         left_ee_state = full_state[:ee_dof]
                         right_ee_state = full_state[ee_dof:]
-                state_tensor = torch.from_numpy(np.concatenate((current_arm_q, left_ee_state, right_ee_state), axis=0)).float()
+                state_tensor = torch.from_numpy(
+                    np.concatenate((current_arm_q, left_ee_state, right_ee_state), axis=0)
+                ).float()
                 observation["observation.state"] = state_tensor
                 # 2. Get Action from Policy
                 action = predict_action(
