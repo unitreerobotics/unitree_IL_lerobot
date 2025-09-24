@@ -52,8 +52,6 @@ def predict_action(
                 if not hasattr(observation[name], 'unsqueeze'):
                     continue
                 if "images" in name:
-                    # Convert RGB to BGR
-                    observation[name] = observation[name][:, :, [2, 1, 0]]  # RGB -> BGR
                     observation[name] = observation[name].type(torch.float32) / 255
                     observation[name] = observation[name].permute(2, 0, 1).contiguous()
         
@@ -73,6 +71,8 @@ def predict_action(
 
     return action
 
+def reset_policy(policy: PreTrainedPolicy):
+    policy.reset()
 
 def cleanup_resources(image_info: Dict[str, Any]):
     """Safely close and unlink shared memory resources."""
@@ -81,6 +81,7 @@ def cleanup_resources(image_info: Dict[str, Any]):
         if shm:
             shm.close()
             shm.unlink()
+
 
 
 def to_list(x):
@@ -124,7 +125,9 @@ class EvalRealConfig:
     visualization: bool = False
     send_real_robot: bool = False
     use_dataset: bool = False
-
+    save_data: bool = False
+    task_dir: str = "./data"
+    max_episodes: int = 1200
     def __post_init__(self):
         # HACK: We parse again the cli args here to get the pretrained path if there was one.
         policy_path = parser.get_path_arg("policy")

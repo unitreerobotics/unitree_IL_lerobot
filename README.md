@@ -211,6 +211,7 @@ To test your trained model on a real robot, you can use the eval_g1.py script lo
 # --visualization: Whether to enable visualization; setting it to true enables it.
 # --send_real_robot: Whether to send commands to the real robot.
 # --sim: Whether to perform inference in the unitree_sim_isaaclab simulation environment.
+# --save_data: Allows recording data while running inference. At present, this option is limited to the sim environment. 
 
 python unitree_lerobot/eval_robot/eval_g1.py  \
     --policy.path=unitree_lerobot/lerobot/outputs/train/2025-03-25/22-11-16_diffusion/checkpoints/100000/pretrained_model \

@@ -14,6 +14,9 @@ from unitree_lerobot.eval_robot.robot_control.robot_hand_unitree import (
     Dex3_1_Controller,
     Dex1_1_Gripper_Controller,
 )
+
+from unitree_lerobot.eval_robot.utils.episode_writer import EpisodeWriter
+
 from unitree_lerobot.eval_robot.robot_control.robot_hand_inspire import Inspire_Controller
 from unitree_lerobot.eval_robot.robot_control.robot_hand_brainco import Brainco_Controller
 
@@ -196,12 +199,17 @@ def setup_robot_interface(args: argparse.Namespace) -> Dict[str, Any]:
 
     # ---------- Simulation helpers (optional) ----------
     sim_state_subscriber = None
+    sim_reward_subscriber = None
+    episode_writer = None
     if getattr(args, "sim", False):
         reset_pose_publisher = ChannelPublisher("rt/reset_pose/cmd", String_)
         reset_pose_publisher.Init()
-        from unitree_lerobot.eval_robot.utils.sim_state_topic import start_sim_state_subscribe
+        from unitree_lerobot.eval_robot.utils.sim_state_topic import start_sim_state_subscribe, start_sim_reward_subscribe
 
         sim_state_subscriber = start_sim_state_subscribe()
+        sim_reward_subscriber = start_sim_reward_subscribe()
+        if getattr(args, "save_data", False) and getattr(args, "task_dir", None):
+            episode_writer = EpisodeWriter(args.task_dir, frequency=30, image_size=[640, 480])
 
     return {
         "arm_ctrl": arm_ctrl,
@@ -211,6 +219,9 @@ def setup_robot_interface(args: argparse.Namespace) -> Dict[str, Any]:
         "arm_dof": int(arm_spec["dof"]),
         "ee_dof": ee_dof,
         "sim_state_subscriber": sim_state_subscriber,
+        "sim_reward_subscriber": sim_reward_subscriber,
+        "episode_writer": episode_writer,
+        "reset_pose_publisher": reset_pose_publisher,
     }
 
 
@@ -237,3 +248,103 @@ def process_images_and_observations(
     current_arm_q = arm_ctrl.get_current_dual_arm_q()
 
     return observation, current_arm_q
+
+
+# for simulation
+
+def publish_reset_category(category: int,publisher): # Scene Reset signal
+    msg = String_(data=str(category))
+    publisher.Write(msg)
+    logger_mp.info(f"published reset category: {category}")
+
+def process_data_add(episode_writer, observation_image, current_arm_q,ee_state, action,arm_dof,ee_dof):
+    if episode_writer is None:
+        return
+    if observation_image is not None and current_arm_q is not None and ee_state is not None and action is not None and arm_dof is not None and ee_dof is not None:
+        # Convert tensors to numpy arrays for JSON serialization
+        if torch.is_tensor(current_arm_q):
+            current_arm_q = current_arm_q.detach().cpu().numpy()
+        if torch.is_tensor(ee_state):
+            ee_state = ee_state.detach().cpu().numpy()
+        if torch.is_tensor(action):
+            action = action.detach().cpu().numpy()
+        colors = {}
+        i=0
+        for key, value in observation_image.items():
+            if "images" in key:
+                if value is not None:
+                    # Convert PyTorch tensor to numpy array for OpenCV compatibility
+                    if torch.is_tensor(value):
+                        # Convert tensor to numpy array and ensure correct format for OpenCV
+                        img_array = value.detach().cpu().numpy()
+                        # If the image is in CHW format (channels first), convert to HWC format (channels last)
+                        if img_array.ndim == 3 and img_array.shape[0] in [1, 3, 4]:
+                            img_array = np.transpose(img_array, (1, 2, 0))
+                        # Ensure the array is in uint8 format for OpenCV
+                        if img_array.dtype != np.uint8:
+                            if img_array.max() <= 1.0:  # Normalized values [0, 1]
+                                img_array = (img_array * 255).astype(np.uint8)
+                            else:  # Values already in [0, 255] range
+                                img_array = img_array.astype(np.uint8)
+                                                # Keep original RGB format - no color channel conversion needed
+                        colors[f"color_{i}"] = img_array
+                    else:
+                        colors[f"color_{i}"] = value
+                    i += 1
+        states = {
+            "left_arm": {                                                                    
+                "qpos":   current_arm_q[:arm_dof//2].tolist(),    # numpy.array -> list
+                "qvel":   [],                          
+                "torque": [],                        
+            }, 
+            "right_arm": {                                                                    
+                "qpos":   current_arm_q[arm_dof//2:].tolist(),       
+                "qvel":   [],                          
+                "torque": [],                         
+            },                        
+            "left_ee": {                                                                    
+                "qpos":   ee_state[:ee_dof].tolist(),           
+                "qvel":   [],                           
+                "torque": [],                          
+            }, 
+            "right_ee": {                                                                    
+                "qpos":   ee_state[ee_dof:].tolist(),       
+                "qvel":   [],                           
+                "torque": [],  
+            }, 
+            "body": {
+                "qpos": [],
+            }, 
+        }
+        actions = {
+            "left_arm": {                                   
+                "qpos":   action[:arm_dof//2].tolist(),       
+                "qvel":   [],       
+                "torque": [],      
+            }, 
+            "right_arm": {                                   
+                "qpos":   action[arm_dof//2:].tolist(),       
+                "qvel":   [],       
+                "torque": [],       
+            },                         
+            "left_ee": {                                   
+                "qpos":   action[arm_dof : arm_dof + ee_dof].tolist(),       
+                "qvel":   [],       
+                "torque": [],       
+            }, 
+            "right_ee": {                                   
+                "qpos":   action[arm_dof + ee_dof : arm_dof + 2 * ee_dof].tolist(),       
+                "qvel":   [],       
+                "torque": [], 
+            }, 
+            "body": {
+                "qpos": [],
+            }, 
+        }
+        episode_writer.add_item(colors, states=states, actions=actions)
+
+def process_data_save(episode_writer,result):
+    """Processes data and saves it."""
+    if episode_writer is None:
+        return
+    episode_writer.save_episode(result)

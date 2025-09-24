@@ -100,6 +100,13 @@ class SharedMemoryManager:
             logger_mp.error(f"Error reading from shared memory: {e}")
             return None
     
+    def reset_data(self):
+        """Reset data"""
+        if self.shm:
+            self.shm.buf[0:8] = b'\x00' * 8
+        else:
+            logger_mp.error("[SharedMemoryManager] Shared memory is not initialized")
+    
     def get_name(self) -> str:
         """Get shared memory name"""
         return self.shm_name
@@ -242,6 +249,135 @@ def start_sim_state_subscribe(shm_name: str = "sim_state_cmd_data", shm_size: in
     return subscriber
 
 
+
+#==============================  sim reward topic  ==============================
+class SimRewardSubscriber:
+    """Simple sim state subscriber class"""
+    
+    def __init__(self, shm_name: str = "sim_reward_cmd_data", shm_size: int = 256):
+        """Initialize the subscriber
+        
+        Args:
+            shm_name: shared memory name
+            shm_size: shared memory size
+        """
+        self.shm_name = shm_name
+        self.shm_size = shm_size
+        self.running = False
+        self.subscriber = None
+        self.subscribe_thread = None
+        self.shared_memory = None
+        
+        # initialize shared memory
+        self._setup_shared_memory()
+        
+        logger_mp.debug(f"[SimRewardSubscriber] Initialized with shared memory: {shm_name}")
+    
+    def _setup_shared_memory(self):
+        """Setup shared memory"""
+        try:
+            self.shared_memory = SharedMemoryManager(self.shm_name, self.shm_size)
+            logger_mp.debug("[SimRewardSubscriber] Shared memory setup successfully")
+        except Exception as e:
+            logger_mp.error(f"[SimRewardSubscriber] Failed to setup shared memory: {e}")
+    
+    def start_subscribe(self):
+        """Start subscribing"""
+        if self.running:
+            logger_mp.warning("[SimRewardSubscriber] Already running")
+            return
+        
+        try:
+            self.subscriber = ChannelSubscriber("rt/rewards_state", String_)
+            self.subscriber.Init()
+            self.running = True
+
+            self.subscribe_thread = threading.Thread(target=self._subscribe_sim_reward, daemon=True)
+            self.subscribe_thread.start()
+
+            logger_mp.info("[SimRewardSubscriber] Started subscribing to rt/sim_reward")
+            
+        except Exception as e:
+            logger_mp.error(f"[SimRewardSubscriber] Failed to start subscribing: {e}")
+            self.running = False
+
+    def _subscribe_sim_reward(self):
+        """Subscribe loop thread"""
+        logger_mp.debug("[SimRewardSubscriber] Subscribe thread started")
+        
+        while self.running:
+            try:
+                if self.subscriber:
+                    msg = self.subscriber.Read()
+                    if msg:
+                        data = json.loads(msg.data)
+                    else:
+                        logger_mp.warning("[SimRewardSubscriber] Received None message")
+                    if self.shared_memory and data:
+                        self.shared_memory.write_data(data)
+                else:
+                    logger_mp.error("[SimRewardSubscriber] Subscriber is not initialized")
+                time.sleep(0.01)
+            except Exception as e:
+                logger_mp.error(f"[SimRewardSubscriber] Error in subscribe loop: {e}")
+                time.sleep(0.02)
+
+    def stop_subscribe(self):
+        """Stop subscribing"""
+        if not self.running:
+            logger_mp.warning("[SimRewardSubscriber] Already stopped or not running")
+            return
+
+        self.running = False
+        # wait for thread to finish
+        if self.subscribe_thread:
+            self.subscribe_thread.join(timeout=1.0)
+
+        if self.shared_memory:
+            self.shared_memory.cleanup()
+        logger_mp.info("[SimRewardSubscriber] Subscriber stopped")
+    
+    def read_data(self) -> Optional[Dict[str, Any]]:
+        """Read data from shared memory
+        
+        Returns:
+            Dict: received data, None if no data or error
+        """
+        try:
+            if self.shared_memory:
+                return self.shared_memory.read_data()
+            return None
+        except Exception as e:
+            logger_mp.error(f"[SimRewardSubscriber] Error reading data: {e}")
+            return None
+    def reset_data(self):
+        """Reset data"""
+        if self.shared_memory:
+            data = {'rewards': [0.0], 'timestamp': 1758009108.266387}
+            self.shared_memory.write_data(data)
+    
+    def is_running(self) -> bool:
+        """Check if subscriber is running"""
+        return self.running
+    
+    def __del__(self):
+        """Destructor"""
+        self.stop_subscribe()
+
+#==============================  sim reward topic  ==============================
+def start_sim_reward_subscribe(shm_name: str = "sim_reward_cmd_data", shm_size: int = 256) -> SimRewardSubscriber:
+    """Start sim reward subscribing
+    
+    Args:
+        shm_name: shared memory name  
+        shm_size: shared memory size
+        
+    Returns:
+        SimRewardSubscriber: started subscriber instance
+    """
+    subscriber = SimRewardSubscriber(shm_name, shm_size)
+    subscriber.start_subscribe()
+    return subscriber
 # if __name__ == "__main__":
 #     # example usage
 #     logger_mp.info("Starting sim state subscriber...")

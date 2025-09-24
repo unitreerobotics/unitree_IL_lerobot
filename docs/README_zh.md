@@ -192,7 +192,7 @@ python src/lerobot/scripts/train.py \
 # --visualization: 是否启用可视化；设置为 true 表示启用。
 # --send_real_robot: 是否将指令发送到真实机器人。
 # --sim: 是否在 unitree_sim_isaaclab 仿真环境中进行推理。
-
+# --save_data 用于在模型推理过程中进行数据录制，目前只能在sim环境中使用
 
 python unitree_lerobot/eval_robot/eval_g1.py  \
     --policy.path=unitree_lerobot/lerobot/outputs/train/2025-03-25/22-11-16_diffusion/checkpoints/100000/pretrained_model \
