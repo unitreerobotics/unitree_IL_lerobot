@@ -55,9 +55,9 @@ def eval_policy(
     policy.reset()  # Set policy to evaluation mode
 
     # init pose
-    from_idx = dataset.episode_data_index["from"][0].item()
+    from_idx = dataset.meta.episodes["dataset_from_index"][0].item()
     step = dataset[from_idx]
-    to_idx = dataset.episode_data_index["to"][0].item()
+    to_idx = dataset.meta.episodes["dataset_to_index"][0].item()
 
     ground_truth_actions = []
     predicted_actions = []

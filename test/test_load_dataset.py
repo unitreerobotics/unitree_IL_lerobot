@@ -4,8 +4,7 @@ import tqdm
 episode_index = 1
 dataset = LeRobotDataset(repo_id="unitreerobotics/G1_Dex3_ToastedBread_Dataset")
 
-from_idx = dataset.episode_data_index["from"][episode_index].item()
-to_idx = dataset.episode_data_index["to"][episode_index].item()
-
+from_idx = dataset.meta.episodes["dataset_from_index"][episode_index]
+to_idx = dataset.meta.episodes["dataset_to_index"][episode_index]
 for step_idx in tqdm.tqdm(range(from_idx, to_idx)):
     step = dataset[step_idx]

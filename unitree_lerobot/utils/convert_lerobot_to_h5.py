@@ -5,7 +5,7 @@ Script lerobot to h5.
 
 python unitree_lerobot/utils/convert_lerobot_to_h5.py.py \
     --repo-id your_name/g1_grabcube_double_hand \
-    --output_dir "$HOME/datasets/g1_grabcube_double_hand" 
+    --output_dir "$HOME/datasets/g1_grabcube_double_hand"
 """
 
 import os
@@ -26,8 +26,8 @@ class LeRobotDataProcessor:
 
     def process_episode(self, episode_index: int) -> dict:
         """Process a single episode to extract camera images, state, and action."""
-        from_idx = self.dataset.episode_data_index["from"][episode_index].item()
-        to_idx = self.dataset.episode_data_index["to"][episode_index].item()
+        from_idx = self.dataset.meta.episodes["dataset_from_index"][episode_index].item()
+        to_idx = self.dataset.meta.episodes["dataset_to_index"][episode_index].item()
 
         episode = defaultdict(list)
         cameras = defaultdict(list)
