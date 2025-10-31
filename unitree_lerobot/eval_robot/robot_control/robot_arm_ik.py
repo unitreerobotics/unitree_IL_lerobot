@@ -219,7 +219,7 @@ class G1_29_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            # sol = self.opti.solve()
+            self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
@@ -473,7 +473,7 @@ class G1_23_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            # sol = self.opti.solve()
+            self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
@@ -748,7 +748,7 @@ class H1_2_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            # sol = self.opti.solve()
+            self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
@@ -1020,7 +1020,7 @@ class H1_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            # sol = self.opti.solve()
+            self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
