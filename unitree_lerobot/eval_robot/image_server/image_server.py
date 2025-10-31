@@ -10,7 +10,7 @@ import logging_mp
 logger_mp = logging_mp.get_logger(__name__, level=logging_mp.DEBUG)
 
 
-class RealSenseCamera(object):
+class RealSenseCamera:
     def __init__(self, img_shape, fps, serial_number=None, enable_depth=False) -> None:
         """
         img_shape: [height, width]
@@ -259,7 +259,7 @@ class ImageServer:
                             logger_mp.error("[Image Server] Head camera frame read is error.")
                             break
                     elif self.head_camera_type == "realsense":
-                        color_image, depth_iamge = cam.get_frame()
+                        color_image, depth_im啊ge = cam.get_frame()
                         if color_image is None:
                             logger_mp.error("[Image Server] Head camera frame read is error.")
                             break
@@ -277,7 +277,7 @@ class ImageServer:
                                 logger_mp.error("[Image Server] Wrist camera frame read is error.")
                                 break
                         elif self.wrist_camera_type == "realsense":
-                            color_image, depth_iamge = cam.get_frame()
+                            color_image, depth_image = cam.get_frame()
                             if color_image is None:
                                 logger_mp.error("[Image Server] Wrist camera frame read is error.")
                                 break

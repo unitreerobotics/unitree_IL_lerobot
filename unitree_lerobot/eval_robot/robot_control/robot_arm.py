@@ -123,7 +123,7 @@ class G1_29_ArmController:
         logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         logger_mp.info("Lock all joints except two arms...\n")
 
-        arm_indices = set(member.value for member in G1_29_JointArmIndex)
+        arm_indices = {member.value for member in G1_29_JointArmIndex}
         for id in G1_29_JointIndex:
             self.msg.motor_cmd[id].mode = 1
             if id.value in arm_indices:
@@ -166,8 +166,8 @@ class G1_29_ArmController:
         current_q = self.get_current_dual_arm_q()
         delta = target_q - current_q
         motion_scale = np.max(np.abs(delta)) / (velocity_limit * self.control_dt)
-        cliped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
-        return cliped_arm_q_target
+        clipped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
+        return clipped_arm_q_target
 
     def _ctrl_motor_state(self):
         if self.motion_mode:
@@ -181,12 +181,12 @@ class G1_29_ArmController:
                 arm_tauff_target = self.tauff_target
 
             if self.simulation_mode:
-                cliped_arm_q_target = arm_q_target
+                clipped_arm_q_target = arm_q_target
             else:
-                cliped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
+                clipped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
 
             for idx, id in enumerate(G1_29_JointArmIndex):
-                self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
+                self.msg.motor_cmd[id].q = clipped_arm_q_target[idx]
                 self.msg.motor_cmd[id].dq = 0
                 self.msg.motor_cmd[id].tau = arm_tauff_target[idx]
 
@@ -414,7 +414,7 @@ class G1_23_ArmController:
         logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         logger_mp.info("Lock all joints except two arms...\n")
 
-        arm_indices = set(member.value for member in G1_23_JointArmIndex)
+        arm_indices = {member.value for member in G1_23_JointArmIndex}
         for id in G1_23_JointIndex:
             self.msg.motor_cmd[id].mode = 1
             if id.value in arm_indices:
@@ -457,8 +457,8 @@ class G1_23_ArmController:
         current_q = self.get_current_dual_arm_q()
         delta = target_q - current_q
         motion_scale = np.max(np.abs(delta)) / (velocity_limit * self.control_dt)
-        cliped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
-        return cliped_arm_q_target
+        clipped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
+        return clipped_arm_q_target
 
     def _ctrl_motor_state(self):
         if self.motion_mode:
@@ -472,12 +472,12 @@ class G1_23_ArmController:
                 arm_tauff_target = self.tauff_target
 
             if self.simulation_mode:
-                cliped_arm_q_target = arm_q_target
+                clipped_arm_q_target = arm_q_target
             else:
-                cliped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
+                clipped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
 
             for idx, id in enumerate(G1_23_JointArmIndex):
-                self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
+                self.msg.motor_cmd[id].q = clipped_arm_q_target[idx]
                 self.msg.motor_cmd[id].dq = 0
                 self.msg.motor_cmd[id].tau = arm_tauff_target[idx]
 
@@ -692,7 +692,7 @@ class H1_2_ArmController:
         logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         logger_mp.info("Lock all joints except two arms...\n")
 
-        arm_indices = set(member.value for member in H1_2_JointArmIndex)
+        arm_indices = {member.value for member in H1_2_JointArmIndex}
         for id in H1_2_JointIndex:
             self.msg.motor_cmd[id].mode = 1
             if id.value in arm_indices:
@@ -735,8 +735,8 @@ class H1_2_ArmController:
         current_q = self.get_current_dual_arm_q()
         delta = target_q - current_q
         motion_scale = np.max(np.abs(delta)) / (velocity_limit * self.control_dt)
-        cliped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
-        return cliped_arm_q_target
+        clipped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
+        return clipped_arm_q_target
 
     def _ctrl_motor_state(self):
         while True:
@@ -747,12 +747,12 @@ class H1_2_ArmController:
                 arm_tauff_target = self.tauff_target
 
             if self.simulation_mode:
-                cliped_arm_q_target = arm_q_target
+                clipped_arm_q_target = arm_q_target
             else:
-                cliped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
+                clipped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
 
             for idx, id in enumerate(H1_2_JointArmIndex):
-                self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
+                self.msg.motor_cmd[id].q = clipped_arm_q_target[idx]
                 self.msg.motor_cmd[id].dq = 0
                 self.msg.motor_cmd[id].tau = arm_tauff_target[idx]
 
@@ -1005,8 +1005,8 @@ class H1_ArmController:
         current_q = self.get_current_dual_arm_q()
         delta = target_q - current_q
         motion_scale = np.max(np.abs(delta)) / (velocity_limit * self.control_dt)
-        cliped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
-        return cliped_arm_q_target
+        clipped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
+        return clipped_arm_q_target
 
     def _ctrl_motor_state(self):
         while True:
@@ -1017,12 +1017,12 @@ class H1_ArmController:
                 arm_tauff_target = self.tauff_target
 
             if self.simulation_mode:
-                cliped_arm_q_target = arm_q_target
+                clipped_arm_q_target = arm_q_target
             else:
-                cliped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
+                clipped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
 
             for idx, id in enumerate(H1_JointArmIndex):
-                self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
+                self.msg.motor_cmd[id].q = clipped_arm_q_target[idx]
                 self.msg.motor_cmd[id].dq = 0
                 self.msg.motor_cmd[id].tau = arm_tauff_target[idx]
 
@@ -1156,7 +1156,7 @@ if __name__ == "__main__":
     # arm_ik = H1_ArmIK(Unit_Test = True, Visualization = True)
     # arm = H1_ArmController()
 
-    # initial positon
+    # initial position
     L_tf_target = pin.SE3(
         pin.Quaternion(1, 0, 0, 0),
         np.array([0.25, +0.25, 0.1]),

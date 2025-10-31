@@ -3,7 +3,7 @@ left:
   urdf_path: brainco_hand/brainco_left.urdf
 
   # Target refers to the retargeting target, which is the robot hand
-  target_joint_names: 
+  target_joint_names:
     [
       "left_thumb_metacarpal_joint",
       "left_thumb_proximal_joint",
@@ -35,7 +35,7 @@ right:
   urdf_path: brainco_hand/brainco_right.urdf
 
   # Target refers to the retargeting target, which is the robot hand
-  target_joint_names: 
+  target_joint_names:
     [
       "right_thumb_metacarpal_joint",
       "right_thumb_proximal_joint",
@@ -48,7 +48,7 @@ right:
   wrist_link_name: "base_link"
   finger_tip_link_names: [ "right_thumb_tip",  "right_index_tip", "right_middle_tip", "right_ring_tip", "right_pinky_tip" ]
   target_link_human_indices_dexpilot: [[ 9, 14, 19, 24, 14, 19, 24, 19, 24, 24,  0,  0,  0,  0,  0], [ 4,  4,  4,  4,  9, 9,  9, 14, 14, 19,  4,  9, 14, 19, 24]]
-  
+
   # for vector type
   target_origin_link_names: ["base_link", "base_link", "base_link", "base_link", "base_link"]
   target_task_link_names: [ "right_thumb_tip",  "right_index_tip", "right_middle_tip", "right_ring_tip", "right_pinky_tip" ]

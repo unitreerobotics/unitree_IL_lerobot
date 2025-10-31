@@ -9,7 +9,7 @@ Script Json to Lerobot.
 python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py \
     --raw-dir $HOME/datasets/g1_grabcube_double_hand \
     --repo-id your_name/g1_grabcube_double_hand \
-    --robot_type Unitree_G1_Dex3 \ 
+    --robot_type Unitree_G1_Dex3 \
     --push_to_hub
 """
 
@@ -24,7 +24,7 @@ import shutil
 import numpy as np
 from pathlib import Path
 from collections import defaultdict
-from typing import Literal, List, Dict, Optional
+from typing import Literal
 
 from lerobot.constants import HF_LEROBOT_HOME
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
@@ -84,20 +84,20 @@ class JsonDataset:
         """Return the number of episodes in the dataset."""
         return len(self.episode_paths)
 
-    def _init_cache(self) -> List:
+    def _init_cache(self) -> list:
         """Initialize data cache if enabled."""
 
         self.episodes_data_cached = []
         for episode_path in tqdm.tqdm(self.episode_paths, desc="Loading Cache Json"):
             json_path = os.path.join(episode_path, self.json_file)
-            with open(json_path, "r", encoding="utf-8") as jsonf:
+            with open(json_path, encoding="utf-8") as jsonf:
                 self.episodes_data_cached.append(json.load(jsonf))
 
         print(f"==> Cached {len(self.episodes_data_cached)} episodes")
 
         return self.episodes_data_cached
 
-    def _extract_data(self, episode_data: Dict, key: str, parts: List[str]) -> np.ndarray:
+    def _extract_data(self, episode_data: dict, key: str, parts: list[str]) -> np.ndarray:
         """
         Extract data from episode dictionary for specified parts.
 
@@ -113,9 +113,22 @@ class JsonDataset:
         for sample_data in episode_data["data"]:
             data_array = np.array([], dtype=np.float32)
             for part in parts:
-                if part in sample_data[key] and sample_data[key][part] is not None:
-                    qpos = np.array(sample_data[key][part]["qpos"], dtype=np.float32)
-                    data_array = np.concatenate([data_array, qpos])
+                key_parts = part.split(".")
+                qpos = None
+                for key_part in key_parts:
+                    if qpos is None and key_part in sample_data[key] and sample_data[key][key_part] is not None:
+                        qpos = sample_data[key][key_part]
+                    else:
+                        if qpos is None:
+                            raise ValueError(f"qpos is None for part: {part}")
+                        qpos = qpos[key_part]
+                if qpos is None:
+                    raise ValueError(f"qpos is None for part: {part}")
+                if isinstance(qpos, list):
+                    qpos = np.array(qpos, dtype=np.float32).flatten()
+                else:
+                    qpos = np.array([qpos], dtype=np.float32).flatten()
+                data_array = np.concatenate([data_array, qpos])
             result.append(data_array)
         return np.array(result)
 
@@ -152,8 +165,8 @@ class JsonDataset:
 
     def get_item(
         self,
-        index: Optional[int] = None,
-    ) -> Dict:
+        index: int | None = None,
+    ) -> dict:
         """Get a training sample from the dataset."""
 
         file_path = np.random.choice(self.episode_paths) if index is None else self.episode_paths[index]

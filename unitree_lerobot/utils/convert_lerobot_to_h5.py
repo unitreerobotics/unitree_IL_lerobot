@@ -5,7 +5,7 @@ Script lerobot to h5.
 
 python unitree_lerobot/utils/convert_lerobot_to_h5.py.py \
     --repo-id your_name/g1_grabcube_double_hand \
-    --output_dir "$HOME/datasets/g1_grabcube_double_hand" 
+    --output_dir "$HOME/datasets/g1_grabcube_double_hand"
 """
 
 import os

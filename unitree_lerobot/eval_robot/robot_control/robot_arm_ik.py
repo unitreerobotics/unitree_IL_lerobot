@@ -219,7 +219,7 @@ class G1_29_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            sol = self.opti.solve()
+            # sol = self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
@@ -473,7 +473,7 @@ class G1_23_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            sol = self.opti.solve()
+            # sol = self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
@@ -748,7 +748,7 @@ class H1_2_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            sol = self.opti.solve()
+            # sol = self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
@@ -1020,7 +1020,7 @@ class H1_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            sol = self.opti.solve()
+            # sol = self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
@@ -1077,7 +1077,7 @@ if __name__ == "__main__":
     # arm_ik = G1_23_ArmIK(Unit_Test = True, Visualization = True)
     # arm_ik = H1_ArmIK(Unit_Test = True, Visualization = True)
 
-    # initial positon
+    # initial position
     L_tf_target = pin.SE3(
         pin.Quaternion(1, 0, 0, 0),
         np.array([0.25, +0.25, 0.1]),

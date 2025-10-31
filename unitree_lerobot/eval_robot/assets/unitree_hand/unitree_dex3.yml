@@ -3,7 +3,7 @@ left:
   urdf_path: unitree_hand/unitree_dex3_left.urdf
 
   # Target refers to the retargeting target, which is the robot hand
-  target_joint_names: 
+  target_joint_names:
     [
       "left_hand_thumb_0_joint",
       "left_hand_thumb_1_joint",
@@ -36,7 +36,7 @@ right:
   urdf_path: unitree_hand/unitree_dex3_right.urdf
 
   # Target refers to the retargeting target, which is the robot hand
-  target_joint_names: 
+  target_joint_names:
     [
       "right_hand_thumb_0_joint",
       "right_hand_thumb_1_joint",
@@ -50,7 +50,7 @@ right:
   wrist_link_name: "base_link"
   finger_tip_link_names: [ "thumb_tip",  "index_tip", "middle_tip"]
   target_link_human_indices_dexpilot: [[ 9, 14, 14, 0, 0, 0], [ 4, 4, 9, 4, 9, 14]]
-  
+
   # for vector type
   target_origin_link_names: ["base_link_thumb","base_link_index","base_link_middle"]
   target_task_link_names: ["thumb_tip", "index_tip", "middle_tip"]

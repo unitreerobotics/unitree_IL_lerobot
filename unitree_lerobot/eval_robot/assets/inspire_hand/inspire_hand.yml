@@ -3,14 +3,14 @@ left:
   urdf_path: inspire_hand/inspire_hand_left.urdf
 
   # Target refers to the retargeting target, which is the robot hand
-  target_joint_names: 
+  target_joint_names:
     [
-     'L_thumb_proximal_yaw_joint', 
+     'L_thumb_proximal_yaw_joint',
      'L_thumb_proximal_pitch_joint',
-     'L_index_proximal_joint', 
-     'L_middle_proximal_joint', 
-     'L_ring_proximal_joint', 
-     'L_pinky_proximal_joint' 
+     'L_index_proximal_joint',
+     'L_middle_proximal_joint',
+     'L_ring_proximal_joint',
+     'L_pinky_proximal_joint'
     ]
 
   # for DexPilot type
@@ -35,14 +35,14 @@ right:
   urdf_path: inspire_hand/inspire_hand_right.urdf
 
   # Target refers to the retargeting target, which is the robot hand
-  target_joint_names: 
+  target_joint_names:
     [
-      'R_thumb_proximal_yaw_joint', 
+      'R_thumb_proximal_yaw_joint',
       'R_thumb_proximal_pitch_joint',
-      'R_index_proximal_joint', 
-      'R_middle_proximal_joint', 
-      'R_ring_proximal_joint', 
-      'R_pinky_proximal_joint' 
+      'R_index_proximal_joint',
+      'R_middle_proximal_joint',
+      'R_ring_proximal_joint',
+      'R_pinky_proximal_joint'
     ]
 
   # for DexPilot type
@@ -54,7 +54,7 @@ right:
   target_origin_link_names: [ "R_hand_base_link", "R_hand_base_link", "R_hand_base_link", "R_hand_base_link", "R_hand_base_link"]
   target_task_link_names: [ "R_thumb_tip", "R_index_tip", "R_middle_tip", "R_ring_tip", "R_pinky_tip" ]
   target_link_human_indices_vector: [ [ 0, 0, 0, 0, 0 ], [ 4, 9, 14, 19, 24 ] ]
-  
+
   # Scaling factor for vector retargeting only
   # For example, Allegro is 1.6 times larger than normal human hand, then this scaling factor should be 1.6
   scaling_factor: 1.20

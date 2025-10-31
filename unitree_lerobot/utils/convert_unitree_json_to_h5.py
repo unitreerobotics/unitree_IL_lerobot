@@ -20,7 +20,6 @@ import tqdm
 import glob
 import numpy as np
 from pathlib import Path
-from typing import List, Dict, Optional
 from collections import defaultdict
 from unitree_lerobot.utils.constants import ROBOT_CONFIGS
 
@@ -65,20 +64,20 @@ class JsonDataset:
         """Return the number of episodes in the dataset."""
         return len(self.episode_paths)
 
-    def _init_cache(self) -> List:
+    def _init_cache(self) -> list:
         """Initialize data cache if enabled."""
 
         self.episodes_data_cached = []
         for episode_path in tqdm.tqdm(self.episode_paths, desc="Loading Cache Json"):
             json_path = os.path.join(episode_path, self.json_file)
-            with open(json_path, "r", encoding="utf-8") as jsonf:
+            with open(json_path, encoding="utf-8") as jsonf:
                 self.episodes_data_cached.append(json.load(jsonf))
 
         print(f"==> Cached {len(self.episodes_data_cached)} episodes")
 
         return self.episodes_data_cached
 
-    def _extract_data(self, episode_data: Dict, key: str, parts: List[str]) -> np.ndarray:
+    def _extract_data(self, episode_data: dict, key: str, parts: list[str]) -> np.ndarray:
         """
         Extract data from episode dictionary for specified parts.
 
@@ -127,8 +126,8 @@ class JsonDataset:
 
     def get_item(
         self,
-        index: Optional[int] = None,
-    ) -> Dict:
+        index: int | None = None,
+    ) -> dict:
         """Get a training sample from the dataset."""
 
         file_path = np.random.choice(self.episode_paths) if index is None else self.episode_paths[index]
