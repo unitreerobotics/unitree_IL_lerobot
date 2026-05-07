@@ -20,7 +20,7 @@ dependencies = [
     "matplotlib>=3.9.0",
     "meshcat==0.3.2",
     # "unitree_sdk2py @ git+https://github.com/unitreerobotics/unitree_sdk2_python.git@master",
-    "logging_mp",
+    "logging_mp==0.1.6",
     "sshkeyboard",
 ]
 
