@@ -1,47 +1,41 @@
+"""
+python -m unitree_lerobot.eval_robot.eval_g1_ipc_test \
+  --arm G1_29 \
+  --ee dex3 \
+  --base-type legs \
+  --hardware-test-joint 0 \
+  --hardware-test-amplitude 0.08 \
+  --hardware-test-period 5.0
+"""
 import time
-import torch
-import numpy as np
-import requests
-import logging_mp
-import msgpack
 import threading
-import msgpack_numpy as m
 
-from PIL import Image
-from copy import copy
+import logging_mp
+import numpy as np
 from multiprocessing.sharedctypes import SynchronizedArray
 from sshkeyboard import listen_keyboard, stop_listening
 
-from lerobot.utils.utils import init_logging
 from lerobot.configs import parser
-from unitree_lerobot.eval_robot.utils.ipc import IPC_Server
+from lerobot.utils.utils import init_logging
 from unitree_lerobot.eval_robot.make_robot import (
+    process_images_and_observations,
     setup_image_client,
     setup_robot_interface,
-    process_images_and_observations,
 )
-from unitree_lerobot.eval_robot.utils.utils import (
-    cleanup_resources,
-    to_list,
-    to_scalar,
-    EvalRealConfig,
-)
-
-m.patch()
+from unitree_lerobot.eval_robot.utils.ipc import IPC_Server
+from unitree_lerobot.eval_robot.utils.utils import EvalRealConfig, to_list, to_scalar
 
 logger_mp = logging_mp.getLogger(__name__)
 logger_mp.setLevel(logging_mp.INFO)
 
-# state transition
-START = False  # Enable to start robot following VR user motion
-STOP = False  # Enable to begin system exit procedure
-READY = False  # Ready to (1) enter START state, (2) enter RECORD_RUNNING state
-RESET = False  # Enable to reset robot to initial pose
+START = False
+STOP = False
+READY = False
+RESET = False
 
-
-CAMERA_STATUS = False  # camera status
-ARM_STATUS = False  # arm status
-EE_STATUS = False  # end effector status
+CAMERA_STATUS = False
+ARM_STATUS = False
+EE_STATUS = False
 
 
 def on_press(key):
@@ -58,7 +52,6 @@ def on_press(key):
 
 
 def get_state() -> dict:
-    """Return current heartbeat state"""
     global START, RESET, STOP, READY, CAMERA_STATUS, ARM_STATUS, EE_STATUS
     return {
         "START": START,
@@ -69,71 +62,6 @@ def get_state() -> dict:
         "ARM_STATUS": ARM_STATUS,
         "EE_STATUS": EE_STATUS,
     }
-
-
-class ADBRobotServeClient:
-    def __init__(
-        self,
-        url: str = "http://localhost:8000",
-        task: str = "do something.",
-        force_predict: bool = False,
-    ):
-        self.url = url
-        self.task = task
-        self.force_predict = force_predict
-        self.action_buffers: list[np.ndarray] = []
-
-    def predict_action(self, observation: dict) -> np.ndarray:
-        """Predict next robot action via HTTP API."""
-        if self.force_predict:
-            self.action_buffers.clear()
-
-        if not self.action_buffers:
-            obs = self._parse_obs(copy(observation))
-            actions = self._http_client_call(obs)
-            self.action_buffers = list(np.split(actions, actions.shape[0]))
-
-        return self.action_buffers.pop(0).flatten()
-
-    def _resize_image(self, image: np.ndarray, h: int, w: int) -> np.ndarray:
-        """Resize image with padding (numpy version)."""
-        img = image.transpose(1, 2, 0) if image.ndim == 3 else image
-        pil_img = Image.fromarray(img if img.ndim == 3 else np.stack([img] * 3, axis=-1))
-
-        cur_w, cur_h = pil_img.size
-        if (cur_w, cur_h) == (w, h):
-            return image
-
-        ratio = max(cur_w / w, cur_h / h)
-        new_w, new_h = int(cur_w / ratio), int(cur_h / ratio)
-        resized = pil_img.resize((new_w, new_h), resample=Image.BILINEAR)
-
-        padded = Image.new("RGB", (w, h), 0)
-        pad_x, pad_y = (w - new_w) // 2, (h - new_h) // 2
-        padded.paste(resized, (pad_x, pad_y))
-
-        return np.array(padded).transpose(2, 0, 1)
-
-    def _parse_obs(self, obs: dict) -> dict:
-        obs["task"] = obs.get("task", self.task)
-        for k, v in obs.items():
-            if isinstance(v, torch.Tensor):
-                v = v.numpy()
-                if "images" in k:
-                    if v.ndim == 3 and v.shape[0] in [1, 3, 4]:
-                        if v.dtype != np.uint8:
-                            v = (np.clip(v, 0, 1) * 255).astype(np.uint8)
-                        v = self._resize_image(v, 224, 224)
-                obs[k] = v
-        return obs
-
-    def _http_client_call(self, obs: dict) -> np.ndarray:
-        payload = msgpack.packb({"observation": obs}, default=m.encode)
-        resp = requests.post(f"{self.url}/act_multi_steps", data=payload)
-        if resp.ok:
-            return msgpack.unpackb(resp.content, object_hook=m.decode)
-        logger_mp.error(f"HTTP {resp.status_code}: {resp.text}")
-        return np.array([])
 
 
 def execute_action(
@@ -257,37 +185,21 @@ def generate_hardware_test_action(
 @parser.wrap()
 def eval_main(cfg: EvalRealConfig):
     try:
-        global START, RESET, STOP, READY
+        global START, STOP, READY, RESET, EE_STATUS
         logger_mp.info(cfg)
+        logger_mp.info("Initializing hardware test mode, skip policy server.")
 
-        policy = None
-        if not cfg.hardware_test:
-            policy = ADBRobotServeClient(url=cfg.policy_url, task=cfg.task, force_predict=cfg.force_predict)
-        else:
-            logger_mp.info("Hardware test mode enabled, skip policy server.")
-        logger_mp.info("Initializing robot to starting pose...")
-
-        # --- Setup Phase ---
         image_client, image_config = setup_image_client(cfg)
         robot_interface = setup_robot_interface(cfg)
 
-        # fmt: off
-        # Unpack interfaces for convenience
         arm_ctrl, arm_ik, ee_shared_mem, arm_dof, ee_dof = (
-            robot_interface[key]
-            for key in ["arm_ctrl", "arm_ik", "ee_shared_mem", "arm_dof", "ee_dof"]
+            robot_interface[key] for key in ["arm_ctrl", "arm_ik", "ee_shared_mem", "arm_dof", "ee_dof"]
         )
         mobile_ctrl = robot_interface["mobile_ctrl"]
         mobile_action_dim = int(robot_interface["mobile_action_dim"])
         base_type = getattr(cfg, "base_type", "legs")
-        # fmt: on
 
-        idx = 0
-
-        # "The initial positions of the robot's arm and fingers take the initial positions during data recording."
-        logger_mp.info("Initializing robot to starting pose...")
         init_pose = cfg.init_pose if cfg.init_pose is not None else None
-
         current_mobile_state = get_mobile_state(mobile_ctrl, base_type)
         if init_pose is None:
             init_pose = np.concatenate(
@@ -318,57 +230,46 @@ def eval_main(cfg: EvalRealConfig):
             mobile_action_dim=mobile_action_dim,
             base_type=base_type,
         )
-
-        time.sleep(1.0)  # Give time for the robot to move
-
-        # --- Run Main Loop ---
-        logger_mp.info(f"Starting evaluation loop at {cfg.frequency} Hz.")
+        time.sleep(1.0)
 
         if cfg.ipc:
             ipc_server = IPC_Server(on_press=on_press, get_state=get_state)
             ipc_server.start()
-
         else:
             listen_keyboard_thread = threading.Thread(
                 target=listen_keyboard,
-                kwargs={
-                    "on_press": on_press,
-                    "until": None,
-                    "sequential": False,
-                },
+                kwargs={"on_press": on_press, "until": None, "sequential": False},
                 daemon=True,
             )
             listen_keyboard_thread.start()
 
         logger_mp.info("Please enter the start signal (enter 's' to start/stop the subsequent program)")
-        READY = True  # Now ready to accept START command
+        READY = True
         test_start_time = time.perf_counter()
 
         while (not STOP) and READY:
             loop_start_time = time.perf_counter()
 
-            # 1. Get Observations
-            observation, current_arm_q, _ = process_images_and_observations(image_client, image_config, arm_ctrl)
+            _, current_arm_q, _ = process_images_and_observations(image_client, image_config, arm_ctrl)
+
+            left_ee_state = right_ee_state = np.array([], dtype=np.float64)
             try:
-                left_ee_state = right_ee_state = np.array([])
                 if cfg.ee:
                     with ee_shared_mem["lock"]:
-                        full_state = np.array(ee_shared_mem["state"][:])
+                        full_state = np.array(ee_shared_mem["state"][:], dtype=np.float64)
                         left_ee_state = full_state[:ee_dof]
                         right_ee_state = full_state[ee_dof:]
                         EE_STATUS = True
             except Exception as e:
-                logger_mp.error(f"[process_images_and_observations] Failed to get arm state: {e}")
-                left_ee_state = right_ee_state = None
+                logger_mp.error(f"[eval_g1_ipc_test] Failed to get end-effector state: {e}")
+                left_ee_state = right_ee_state = np.array([], dtype=np.float64)
                 EE_STATUS = False
 
             mobile_state = get_mobile_state(mobile_ctrl, base_type)
             state = np.concatenate((current_arm_q, left_ee_state, right_ee_state, mobile_state), axis=0)
-            observation["observation.state"] = torch.from_numpy(state).float()
-            observation["task"] = cfg.task if cfg.task else None
+            logger_mp.debug(f"state={state.tolist()}")
 
             if RESET:
-                # 1️⃣ Reset phase: interpolate from current position to initial pose
                 logger_mp.info("Resetting robot to initial pose...")
                 reset_start = build_hold_action(
                     arm_state=current_arm_q,
@@ -394,26 +295,19 @@ def eval_main(cfg: EvalRealConfig):
                 logger_mp.info("Reset complete.")
                 RESET = False
                 START = False
-                action_np = init_pose.copy()  # keep final position at initial pose
-
+                action_np = init_pose.copy()
             elif START:
-                if cfg.hardware_test:
-                    action_np = generate_hardware_test_action(
-                        cfg=cfg,
-                        current_arm_q=current_arm_q,
-                        left_ee_state=left_ee_state,
-                        right_ee_state=right_ee_state,
-                        mobile_state=mobile_state,
-                        arm_dof=arm_dof,
-                        base_type=base_type,
-                        elapsed_s=loop_start_time - test_start_time,
-                    )
-                else:
-                    # 2️⃣ START phase: model inference
-                    action_np = np.asarray(policy.predict_action(observation), dtype=np.float64)
-                    validate_action_dim(action_np, expected_action_dim, "policy action")
+                action_np = generate_hardware_test_action(
+                    cfg=cfg,
+                    current_arm_q=current_arm_q,
+                    left_ee_state=left_ee_state,
+                    right_ee_state=right_ee_state,
+                    mobile_state=mobile_state,
+                    arm_dof=arm_dof,
+                    base_type=base_type,
+                    elapsed_s=loop_start_time - test_start_time,
+                )
             else:
-                # 3️⃣ Hold current position
                 action_np = build_hold_action(
                     arm_state=current_arm_q,
                     left_ee_state=left_ee_state,
@@ -422,7 +316,6 @@ def eval_main(cfg: EvalRealConfig):
                     base_type=base_type,
                 )
 
-            # 3. Execute the action
             validate_action_dim(action_np, expected_action_dim, "execute action")
             execute_action(
                 action_np=action_np,
@@ -435,19 +328,16 @@ def eval_main(cfg: EvalRealConfig):
                 mobile_action_dim=mobile_action_dim,
                 base_type=base_type,
             )
-            idx += 1
             time.sleep(max(0, (1.0 / cfg.frequency) - (time.perf_counter() - loop_start_time)))
 
     except KeyboardInterrupt:
         logger_mp.info("KeyboardInterrupt, exiting program...")
     finally:
-        # arm go home
         try:
             arm_ctrl.ctrl_dual_arm_go_home()
         except Exception as e:
             logger_mp.error(f"Failed to ctrl_dual_arm_go_home: {e}")
 
-        # stop keyboard listener or ipc server
         try:
             if cfg.ipc:
                 ipc_server.stop()

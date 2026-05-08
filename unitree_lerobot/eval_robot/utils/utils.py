@@ -124,6 +124,7 @@ class EvalRealConfig:
     # Basic control parameters
     arm: str = "G1_29"  # G1_29, G1_23
     ee: str = "dex3"  # dex3, dex1, inspire1, brainco
+    base_type: str = "legs"  # legs, lift, mobile_lift
 
     # images erver
     image_host: str = "192.168.123.164"
@@ -143,6 +144,14 @@ class EvalRealConfig:
     force_predict: bool = False
     policy_url: str = "http://localhost:8000"
     init_pose: list | None = None
+    base_type: str = "legs"  # legs, lift, mobile_lift
+    hardware_test: bool = False
+    hardware_test_joint: int = 0
+    hardware_test_amplitude: float = 0.12
+    hardware_test_period: float = 4.0
+    hardware_test_lift_delta: float = 0.0
+    hardware_test_move_x: float = 0.0
+    hardware_test_move_yaw: float = 0.0
 
     def __post_init__(self):
         # HACK: We parse again the cli args here to get the pretrained path if there was one.

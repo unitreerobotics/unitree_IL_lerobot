@@ -20,6 +20,7 @@ from unitree_lerobot.eval_robot.utils.episode_writer import EpisodeWriter
 
 from unitree_lerobot.eval_robot.robot_control.robot_hand_inspire import Inspire_Controller
 from unitree_lerobot.eval_robot.robot_control.robot_hand_brainco import Brainco_Controller
+from unitree_lerobot.eval_robot.robot_control.mobile_control import G1_Mobile_Lift_Controller
 
 
 from unitree_sdk2py.core.channel import ChannelPublisher
@@ -121,6 +122,19 @@ def setup_robot_interface(args: argparse.Namespace) -> dict[str, Any]:
             "lock": data_lock,
         }
 
+    # ---------- Mobile Base / Lift (optional) ----------
+    mobile_ctrl = None
+    mobile_action_dim = 0
+    base_type = getattr(args, "base_type", "legs")
+    if base_type != "legs":
+        mobile_ctrl = G1_Mobile_Lift_Controller(
+            base_type=base_type,
+            r3_controller=False,
+            fps=float(getattr(args, "frequency", 30.0)),
+            simulation_mode=is_sim,
+        )
+        mobile_action_dim = 3 if base_type == "mobile_lift" else 1
+
     # ---------- Simulation helpers (optional) ----------
     episode_writer = None
     if is_sim:
@@ -142,6 +156,8 @@ def setup_robot_interface(args: argparse.Namespace) -> dict[str, Any]:
             "ee_shared_mem": ee_shared_mem,
             "arm_dof": int(arm_spec["dof"]),
             "ee_dof": ee_dof,
+            "mobile_ctrl": mobile_ctrl,
+            "mobile_action_dim": mobile_action_dim,
             "sim_state_subscriber": sim_state_subscriber,
             "sim_reward_subscriber": sim_reward_subscriber,
             "episode_writer": episode_writer,
@@ -154,6 +170,8 @@ def setup_robot_interface(args: argparse.Namespace) -> dict[str, Any]:
         "ee_shared_mem": ee_shared_mem,
         "arm_dof": int(arm_spec["dof"]),
         "ee_dof": ee_dof,
+        "mobile_ctrl": mobile_ctrl,
+        "mobile_action_dim": mobile_action_dim,
     }
 
 
