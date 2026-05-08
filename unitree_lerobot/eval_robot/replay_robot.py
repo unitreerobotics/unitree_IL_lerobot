@@ -22,8 +22,8 @@ from unitree_lerobot.eval_robot.utils.utils import to_list, to_scalar
 
 import logging_mp
 
-logging_mp.basic_config(level=logging_mp.INFO)
-logger_mp = logging_mp.get_logger(__name__)
+logger_mp = logging_mp.getLogger(__name__)
+logger_mp.setLevel(logging_mp.INFO)
 
 
 @parser.wrap()

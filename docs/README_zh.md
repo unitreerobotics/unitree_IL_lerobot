@@ -1,5 +1,5 @@
 <div align="center">
-  <h1 align="center"> unitree_IL_lerobot </h1>
+  <h1 align="center"> unitree_lerobot </h1>
   <h3 align="center"> Unitree Robotics </h3>
   <p align="center">
     <a href="../README.md"> English </a> | <a href="./README_zh.md">中文</a>
@@ -35,7 +35,7 @@
 
 ```bash
 # 下载源码
-git clone --recurse-submodules https://github.com/unitreerobotics/unitree_IL_lerobot.git
+git clone --recurse-submodules https://github.com/unitreerobotics/unitree_lerobot.git
 
 # 已经下载:
 git submodule update --init --recursive
@@ -96,7 +96,39 @@ python src/lerobot/scripts/lerobot_dataset_viz.py \
 
 如果你想录制自己的数据集, 可以使用开源的遥操作项目[avp_teleoperate](https://github.com/unitreerobotics/avp_teleoperate) 对 Unitree G1 人形机器人进行数据采集，具体可参考[avp_teleoperate](https://github.com/unitreerobotics/avp_teleoperate)项目。
 
-## 2.3 🛠️ 数据转换
+## 2.3 ✂️数据处理
+
+当你完成了数据采集任务，通常需要对采集的数据进行一些处理，例如切掉某个Episode中多余的动作片段、删除某个不合格的Episode等。对此，我们开发了一个数据集编辑器，用于处理这样的任务。
+
+![](https://oss-global-cdn.unitree.com/static/5f2d16f7382f434aa229c38ce6a4df40_1455x1071.jpg)
+
+该数据集编辑器需要先安装pyqt5才可以启动。
+
+```bash
+conda activate unitree_lerobot
+pip install PyQt5
+```
+
+按照如下方式启动数据集编辑器。
+
+```bash
+cd data_editor
+python data_editor_CN.py
+```
+
+首先，点击`选择数据集路径`按钮，选择需要编辑的数据集路径。如下所示，在下面的目录树中，我们需要选择的路径为`test_dataset/`。
+
+```bash
+test_dataset/
+    ├── episode_0001
+    ├── episode_0003
+    ├── episode_0004
+    ├── ...
+```
+
+你可以通过拖动播放进度条上的红线来调整播放位置，也可以按住键盘上的Shift按键再去拖动，来选择片段。对于选中的片段，点击`删除所选区间`，即可将其裁减掉。如果当前Episode需要删除，点击`删除当前Episode`即可。
+
+## 2.4 🛠️ 数据转换
 
 使用[avp_teleoperate](https://github.com/unitreerobotics/avp_teleoperate)采集的数据是采用 JSON 格式进行存储。假如采集的数据存放在`$HOME/datasets/task_name` 目录中，格式如下:
 
@@ -113,7 +145,7 @@ datasets/                               # 数据集文件夹
         ├── episode_xxx
 ```
 
-### 2.3.1 🔀 排序和重命名
+### 2.4.1 🔀 排序和重命名
 
 生成 lerobot 的数据集时，最好保证数据的`episode_0`命名是从 0 开始且是连续的，使用下面脚本对数据进行排序处理
 
@@ -122,9 +154,9 @@ python unitree_lerobot/utils/sort_and_rename_folders.py \
         --data_dir $HOME/datasets/task_name
 ```
 
-### 2.3.2 🔄 转换
+### 2.4.2 🔄 转换
 
-转换`json`格式到`lerobot`格式，你可以根据 [ROBOT_CONFIGS](https://github.com/unitreerobotics/unitree_IL_lerobot/blob/main/unitree_lerobot/utils/convert_unitree_json_to_lerobot.py#L154) 去定义自己的 `robot_type`
+转换`json`格式到`lerobot`格式，你可以根据 [ROBOT_CONFIGS](https://github.com/unitreerobotics/unitree_lerobot/blob/main/unitree_lerobot/utils/convert_unitree_json_to_lerobot.py#L154) 去定义自己的 `robot_type`
 
 ```bash
 # --raw-dir     对应json的数据集目录

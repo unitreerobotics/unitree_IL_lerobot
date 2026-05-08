@@ -9,7 +9,8 @@ from queue import Queue, Empty
 from threading import Thread
 import logging_mp
 
-logger_mp = logging_mp.get_logger(__name__)
+logger_mp = logging_mp.getLogger(__name__)
+logger_mp.setLevel(logging_mp.INFO)
 
 
 class EpisodeWriter:

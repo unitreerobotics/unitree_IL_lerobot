@@ -42,8 +42,8 @@ from unitree_lerobot.eval_robot.utils.rerun_visualizer import RerunLogger, visua
 
 import logging_mp
 
-logging_mp.basic_config(level=logging_mp.INFO)
-logger_mp = logging_mp.get_logger(__name__)
+logger_mp = logging_mp.getLogger(__name__)
+logger_mp.setLevel(logging_mp.INFO)
 
 
 def eval_policy(

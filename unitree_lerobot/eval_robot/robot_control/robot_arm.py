@@ -13,7 +13,8 @@ from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowCmd_
 
 import logging_mp
 
-logger_mp = logging_mp.get_logger(__name__)
+logger_mp = logging_mp.getLogger(__name__)
+logger_mp.setLevel(logging_mp.INFO)
 
 kTopicLowCommand_Debug = "rt/lowcmd"
 kTopicLowCommand_Motion = "rt/arm_sdk"

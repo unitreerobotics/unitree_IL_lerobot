@@ -10,7 +10,8 @@ from multiprocessing import Process, Array
 
 import logging_mp
 
-logger_mp = logging_mp.get_logger(__name__)
+logger_mp = logging_mp.getLogger(__name__)
+logger_mp.setLevel(logging_mp.INFO)
 
 Inspire_Num_Motors = 6
 kTopicInspireCommand = "rt/inspire/cmd"

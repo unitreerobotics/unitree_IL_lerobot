@@ -11,7 +11,8 @@ from unitree_lerobot.eval_robot.utils.weighted_moving_filter import WeightedMovi
 
 import logging_mp
 
-logger_mp = logging_mp.get_logger(__name__)
+logger_mp = logging_mp.getLogger(__name__)
+logger_mp.setLevel(logging_mp.INFO)
 parent2_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(parent2_dir)
 

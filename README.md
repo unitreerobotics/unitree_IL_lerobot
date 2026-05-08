@@ -1,5 +1,5 @@
 <div align="center">
-  <h1 align="center"> unitree_IL_lerobot </h1>
+  <h1 align="center"> unitree_lerobot </h1>
   <h3 align="center"> Unitree Robotics </h3>
   <p align="center">
     <a href="./README.md"> English </a> | <a href="./docs/README_zh.md">中文</a>
@@ -56,7 +56,7 @@ The purpose of this project is to use the [LeRobot](https://github.com/huggingfa
 
 ```bash
 # Clone the source code
-git clone --recurse-submodules https://github.com/unitreerobotics/unitree_IL_lerobot.git
+git clone --recurse-submodules https://github.com/unitreerobotics/unitree_lerobot.git
 
 # If already downloaded:
 git submodule update --init --recursive
@@ -119,7 +119,41 @@ python src/lerobot/scripts/lerobot_dataset_viz.py \
 
 If you want to record your own dataset. The open-source teleoperation project [avp_teleoperate](https://github.com/unitreerobotics/avp_teleoperate/tree/g1) can be used to collect data using the Unitree G1 humanoid robot. For more details, please refer to the [avp_teleoperate](https://github.com/unitreerobotics/avp_teleoperate/tree/g1) project.
 
-## 2.3 🛠️ Data Conversion
+## 2.3 ✂️Data Processing
+
+When you finished the Data Collection step, it may be essential for you to process the data you have been collected. For example, if one of the episodes failed to complete the task, you need to delete the episode, to increase the data's quality.
+
+We have designed a data editor in this project, in order to help users process the data. Currently, it can cut off excess segments in the episodes, and delete the bad episodes.
+
+![](https://oss-global-cdn.unitree.com/static/986a520f8b444784b090a07b9efc6803_1455x1071.jpg)
+
+Before you launch the data editor, you need to install pyqt5.
+
+```bash
+conda activate unitree_lerobot
+pip install PyQt5
+```
+
+Launch the data editor as below.
+
+```bash
+cd data_editor
+python data_editor_EN.py
+```
+
+At first, click the button `Select Dataset Path`, choose the path of your dataset. For example, at the path tree below, `test_dataset/`is the path you need to choose.
+
+```bash
+test_dataset/
+    ├── episode_0001
+    ├── episode_0003
+    ├── episode_0004
+    ├── ...
+```
+
+You can drag the red line directly to seek playback, and drag the red line with Shift on your keyboard to select the playback range, and then trim the selected range with the button `Trim Selected Range`. If you want to delete the current episode, click the button `Delete Current Episode`.
+
+## 2.4 🛠️ Data Conversion
 
 The data collected using [avp_teleoperate](https://github.com/unitreerobotics/avp_teleoperate/tree/g1) is stored in JSON format. Assuming the collected data is stored in the `$HOME/datasets/task_name`, the format is as follows
 
@@ -136,7 +170,7 @@ datasets/                               # Dataset folder
         ├── episode_xxx
 ```
 
-### 2.3.1 🔀 Sort and Rename
+### 2.4.1 🔀 Sort and Rename
 
 When generating datasets for LeRobot, it is recommended to ensure that the data naming convention, starting from `episode_0`, is sequential and continuous. You can use the following script to `sort and rename` the data accordingly.
 
@@ -145,9 +179,9 @@ python unitree_lerobot/utils/sort_and_rename_folders.py \
         --data_dir $HOME/datasets/task_name
 ```
 
-#### 2.3.2 🔄 Conversion
+#### 2.4.2 🔄 Conversion
 
-Convert `Unitree JSON` Dataset to `LeRobot` Format. You can define your own `robot_type` based on [ROBOT_CONFIGS](https://github.com/unitreerobotics/unitree_IL_lerobot/blob/main/unitree_lerobot/utils/convert_unitree_json_to_lerobot.py#L154).
+Convert `Unitree JSON` Dataset to `LeRobot` Format. You can define your own `robot_type` based on [ROBOT_CONFIGS](https://github.com/unitreerobotics/unitree_lerobot/blob/main/unitree_lerobot/utils/convert_unitree_json_to_lerobot.py#L154).
 
 ```bash
 # --raw-dir     Corresponds to the directory of your JSON dataset
