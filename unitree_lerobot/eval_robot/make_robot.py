@@ -74,7 +74,7 @@ def setup_image_client(args: argparse.Namespace) -> dict[str, Any]:
     """Initializes and starts the image client and shared memory."""
     # image client: img_config should be the same as the configuration in image_server.py (of Robot's development computing unit)
     
-    image_client = ImageClient(host=args.image_host)
+    image_client = ImageClient(host=args.image_host, request_bgr=True)
     image_config = image_client.get_cam_config()
     return image_client, image_config
 
@@ -184,19 +184,25 @@ def process_images_and_observations(img_client, camera_config, arm_ctrl):
             return torch.from_numpy(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
         if camera_config['head_camera']['enable_zmq']:
-            head_img, head_img_fps = img_client.get_head_frame()
+            head_img = img_client.get_head_frame()
             if head_img is not None:
-                observation["observation.images.cam_left_high"] = to_tensor_rgb(head_img[:, :camera_config['head_camera']['image_shape'][1]//2])
-                observation["observation.images.cam_right_high"] = to_tensor_rgb(head_img[:, camera_config['head_camera']['image_shape'][1]//2:])
+                observation["observation.images.cam_left_high"] = to_tensor_rgb(head_img.bgr[:, :camera_config['head_camera']['image_shape'][1]//2])
+                observation["observation.images.cam_right_high"] = to_tensor_rgb(head_img.bgr[:, camera_config['head_camera']['image_shape'][1]//2:])
+            else:
+                logger_mp.warning("Head image is None!")
 
         if camera_config['left_wrist_camera']['enable_zmq']:
-            left_wrist, _ = img_client.get_left_wrist_frame()
+            left_wrist = img_client.get_left_wrist_frame()
             if left_wrist is not None:
-                observation["observation.images.cam_left_wrist"] = to_tensor_rgb(left_wrist)
+                observation["observation.images.cam_left_wrist"] = to_tensor_rgb(left_wrist.bgr)
+            else:
+                logger_mp.warning("left_wrist image is None!")
         if camera_config['right_wrist_camera']['enable_zmq']:
-            right_wrist, _ = img_client.get_right_wrist_frame()
+            right_wrist = img_client.get_right_wrist_frame()
             if right_wrist is not None:
-                observation["observation.images.cam_right_wrist"] = to_tensor_rgb(right_wrist)
+                observation["observation.images.cam_right_wrist"] = to_tensor_rgb(right_wrist.bgr)
+            else:
+                logger_mp.warning("right_wrist image is None!")
 
         status["image_ok"] = True
 

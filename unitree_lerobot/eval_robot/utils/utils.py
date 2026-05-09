@@ -144,7 +144,7 @@ class EvalRealConfig:
     force_predict: bool = False
     policy_url: str = "http://localhost:8000"
     init_pose: list | None = None
-    base_type: str = "legs"  # legs, lift, mobile_lift
+
     hardware_test: bool = False
     hardware_test_joint: int = 0
     hardware_test_amplitude: float = 0.12
