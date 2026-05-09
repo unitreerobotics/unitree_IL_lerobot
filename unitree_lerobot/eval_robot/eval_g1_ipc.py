@@ -1,8 +1,15 @@
+import logging_mp
+logging_mp.basicConfig(level=logging_mp.INFO, 
+                       file=True, 
+                       file_path="/home/unitree/unitree_eai_environment/logs",
+                       backup_count=100,
+                       max_file_size=50*1024*1024)
+logger_mp = logging_mp.getLogger(__name__)
+
 import time
 import torch
 import numpy as np
 import requests
-import logging_mp
 import msgpack
 import threading
 import msgpack_numpy as m
@@ -28,9 +35,6 @@ from unitree_lerobot.eval_robot.utils.utils import (
 )
 
 m.patch()
-
-logger_mp = logging_mp.getLogger(__name__)
-logger_mp.setLevel(logging_mp.INFO)
 
 # state transition
 START = False  # Enable to start robot following VR user motion
@@ -196,83 +200,20 @@ def get_mobile_state(mobile_ctrl, base_type: str) -> np.ndarray:
     return np.array([height], dtype=np.float64)
 
 
-def build_hold_action(
-    arm_state: np.ndarray,
-    left_ee_state: np.ndarray,
-    right_ee_state: np.ndarray,
-    mobile_state: np.ndarray,
-    base_type: str,
-) -> np.ndarray:
-    chunks = [arm_state, left_ee_state, right_ee_state]
-    if mobile_state.size > 0:
-        if base_type == "mobile_lift":
-            chunks.append(np.array([mobile_state[0], 0.0, 0.0], dtype=np.float64))
-        else:
-            chunks.append(np.array([mobile_state[0]], dtype=np.float64))
-    return np.concatenate(chunks, axis=0)
-
-
-def validate_action_dim(action_np: np.ndarray, expected_dim: int, source: str):
-    if action_np.shape[0] != expected_dim:
-        raise ValueError(f"{source} dim mismatch: expected {expected_dim}, got {action_np.shape[0]}")
-
-
-def generate_hardware_test_action(
-    cfg: EvalRealConfig,
-    current_arm_q: np.ndarray,
-    left_ee_state: np.ndarray,
-    right_ee_state: np.ndarray,
-    mobile_state: np.ndarray,
-    arm_dof: int,
-    base_type: str,
-    elapsed_s: float,
-) -> np.ndarray:
-    arm_action = np.array(current_arm_q, dtype=np.float64, copy=True)
-    joint_idx = int(np.clip(cfg.hardware_test_joint, 0, arm_dof - 1))
-    period = max(float(cfg.hardware_test_period), 1e-3)
-    amplitude = float(cfg.hardware_test_amplitude)
-    arm_action[joint_idx] = current_arm_q[joint_idx] + amplitude * np.sin(2.0 * np.pi * elapsed_s / period)
-
-    chunks = [
-        arm_action,
-        np.array(left_ee_state, dtype=np.float64, copy=True),
-        np.array(right_ee_state, dtype=np.float64, copy=True),
-    ]
-
-    if mobile_state.size > 0:
-        lift_target = float(mobile_state[0] + cfg.hardware_test_lift_delta)
-        if base_type == "mobile_lift":
-            chunks.append(
-                np.array(
-                    [lift_target, float(cfg.hardware_test_move_x), float(cfg.hardware_test_move_yaw)],
-                    dtype=np.float64,
-                )
-            )
-        else:
-            chunks.append(np.array([lift_target], dtype=np.float64))
-
-    return np.concatenate(chunks, axis=0)
-
-
 @parser.wrap()
 def eval_main(cfg: EvalRealConfig):
     try:
         global START, RESET, STOP, READY
         logger_mp.info(cfg)
 
-        policy = None
-        if not cfg.hardware_test:
-            policy = ADBRobotServeClient(url=cfg.policy_url, task=cfg.task, force_predict=cfg.force_predict)
-        else:
-            logger_mp.info("Hardware test mode enabled, skip policy server.")
-        logger_mp.info("Initializing robot to starting pose...")
+        policy = ADBRobotServeClient(url=cfg.policy_url, task=cfg.task, force_predict=cfg.force_predict)
+        logger_mp.info("ADBRobotServeClient is ok")
 
         # --- Setup Phase ---
         image_client, image_config = setup_image_client(cfg)
         robot_interface = setup_robot_interface(cfg)
 
         # fmt: off
-        # Unpack interfaces for convenience
         arm_ctrl, arm_ik, ee_shared_mem, arm_dof, ee_dof = (
             robot_interface[key]
             for key in ["arm_ctrl", "arm_ik", "ee_shared_mem", "arm_dof", "ee_dof"]
@@ -286,26 +227,8 @@ def eval_main(cfg: EvalRealConfig):
 
         # "The initial positions of the robot's arm and fingers take the initial positions during data recording."
         logger_mp.info("Initializing robot to starting pose...")
-        init_pose = cfg.init_pose if cfg.init_pose is not None else None
 
-        current_mobile_state = get_mobile_state(mobile_ctrl, base_type)
-        if init_pose is None:
-            init_pose = np.concatenate(
-                (
-                    np.zeros(arm_dof + 2 * ee_dof, dtype=np.float64),
-                    build_hold_action(
-                        arm_state=np.array([], dtype=np.float64),
-                        left_ee_state=np.array([], dtype=np.float64),
-                        right_ee_state=np.array([], dtype=np.float64),
-                        mobile_state=current_mobile_state,
-                        base_type=base_type,
-                    ),
-                ),
-                axis=0,
-            )
-        init_pose = np.asarray(init_pose, dtype=np.float64)
-        expected_action_dim = arm_dof + 2 * ee_dof + mobile_action_dim
-        validate_action_dim(init_pose, expected_action_dim, "init_pose")
+        init_pose = cfg.init_pose if cfg.init_pose is not None else np.zeros(arm_dof + 2 * ee_dof + mobile_action_dim)
 
         execute_action(
             action_np=init_pose,
@@ -370,14 +293,7 @@ def eval_main(cfg: EvalRealConfig):
             if RESET:
                 # 1️⃣ Reset phase: interpolate from current position to initial pose
                 logger_mp.info("Resetting robot to initial pose...")
-                reset_start = build_hold_action(
-                    arm_state=current_arm_q,
-                    left_ee_state=left_ee_state,
-                    right_ee_state=right_ee_state,
-                    mobile_state=mobile_state,
-                    base_type=base_type,
-                )
-                interp_poses = np.linspace(reset_start, init_pose, 30)
+                interp_poses = np.linspace(state, init_pose, 30)
                 for q in interp_poses:
                     execute_action(
                         action_np=q,
@@ -397,33 +313,12 @@ def eval_main(cfg: EvalRealConfig):
                 action_np = init_pose.copy()  # keep final position at initial pose
 
             elif START:
-                if cfg.hardware_test:
-                    action_np = generate_hardware_test_action(
-                        cfg=cfg,
-                        current_arm_q=current_arm_q,
-                        left_ee_state=left_ee_state,
-                        right_ee_state=right_ee_state,
-                        mobile_state=mobile_state,
-                        arm_dof=arm_dof,
-                        base_type=base_type,
-                        elapsed_s=loop_start_time - test_start_time,
-                    )
-                else:
-                    # 2️⃣ START phase: model inference
-                    action_np = np.asarray(policy.predict_action(observation), dtype=np.float64)
-                    validate_action_dim(action_np, expected_action_dim, "policy action")
+                # 2️⃣ START phase: model inference
+                action_np = policy.predict_action(observation)
             else:
                 # 3️⃣ Hold current position
-                action_np = build_hold_action(
-                    arm_state=current_arm_q,
-                    left_ee_state=left_ee_state,
-                    right_ee_state=right_ee_state,
-                    mobile_state=mobile_state,
-                    base_type=base_type,
-                )
-
+                action_np = state.copy()
             # 3. Execute the action
-            validate_action_dim(action_np, expected_action_dim, "execute action")
             execute_action(
                 action_np=action_np,
                 arm_dof=arm_dof,
