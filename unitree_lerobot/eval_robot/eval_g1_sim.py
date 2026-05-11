@@ -1,56 +1,62 @@
-"""'
-Refer to:   lerobot/lerobot/scripts/eval.py
-            lerobot/lerobot/scripts/econtrol_robot.py
-            lerobot/robot_devices/control_utils.py
-"""
+"""Simulation evaluation loop using the unified UnitreeRobot + sim-only DDS hooks."""
 
 import time
 import torch
 import logging
-
 import numpy as np
+
 from pprint import pformat
 from dataclasses import asdict
+from typing import Any
 from torch import nn
 from contextlib import nullcontext
-from typing import Any
 
 from lerobot.policies.factory import make_policy, make_pre_post_processors
-from lerobot.utils.utils import (
-    get_safe_torch_device,
-    init_logging,
-)
+from lerobot.utils.utils import get_safe_torch_device, init_logging
 from lerobot.configs import parser
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.policies.pretrained import PreTrainedPolicy
-from multiprocessing.sharedctypes import SynchronizedArray
 from lerobot.processor.rename_processor import rename_stats
-from lerobot.processor import (
-    PolicyAction,
-    PolicyProcessorPipeline,
-)
-from unitree_lerobot.eval_robot.make_robot import (
-    setup_image_client,
-    setup_robot_interface,
-    process_images_and_observations,
-)
-from unitree_lerobot.eval_robot.utils.utils import (
-    cleanup_resources,
-    predict_action,
-    to_list,
-    to_scalar,
-)
+from lerobot.processor import PolicyAction, PolicyProcessorPipeline
+
+from unitree_sdk2py.core.channel import ChannelPublisher
+from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
+
+from unitree_lerobot.eval_robot.robot import UnitreeRobot
+from unitree_lerobot.eval_robot.utils.utils import predict_action
 from unitree_lerobot.eval_robot.utils.sim_savedata_utils import (
     EvalRealConfig,
     process_data_add,
     is_success,
 )
 from unitree_lerobot.eval_robot.utils.rerun_visualizer import RerunLogger, visualization_data
+from unitree_lerobot.eval_robot.utils.episode_writer import EpisodeWriter
+from unitree_lerobot.eval_robot.utils.sim_state_topic import (
+    start_sim_state_subscribe,
+    start_sim_reward_subscribe,
+)
 
 import logging_mp
 
 logger_mp = logging_mp.getLogger(__name__)
 logger_mp.setLevel(logging_mp.INFO)
+
+
+def _setup_sim_extras(cfg: EvalRealConfig):
+    """DDS subscribers/publishers only used in the sim flow."""
+    reset_pose_publisher = ChannelPublisher("rt/reset_pose/cmd", String_)
+    reset_pose_publisher.Init()
+    sim_state_subscriber = start_sim_state_subscribe()
+    sim_reward_subscriber = start_sim_reward_subscribe()
+    episode_writer = None
+    if getattr(cfg, "save_data", False) and getattr(cfg, "task_dir", None):
+        episode_writer = EpisodeWriter(cfg.task_dir, frequency=30, image_size=[640, 480])
+    return {
+        "sim_state_subscriber": sim_state_subscriber,
+        "sim_reward_subscriber": sim_reward_subscriber,
+        "episode_writer": episode_writer,
+        "reset_pose_publisher": reset_pose_publisher,
+    }
 
 
 def eval_policy(
@@ -61,178 +67,114 @@ def eval_policy(
     postprocessor: PolicyProcessorPipeline[PolicyAction, PolicyAction] | None = None,
 ):
     assert isinstance(policy, nn.Module), "Policy must be a PyTorch nn module."
-
     logger_mp.info(f"Arguments: {cfg}")
 
-    if cfg.visualization:
-        rerun_logger = RerunLogger()
-
-    # Reset policy and processor if they are provided
+    rerun_logger = RerunLogger() if cfg.visualization else None
     if policy is not None and preprocessor is not None and postprocessor is not None:
         policy.reset()
         preprocessor.reset()
         postprocessor.reset()
 
-    image_info = None
+    # Force sim flag on the cfg so UnitreeRobot initializes its subsystems in sim mode.
+    if not getattr(cfg, "sim", False):
+        setattr(cfg, "sim", True)
+
+    robot = UnitreeRobot(cfg)
+    sim = _setup_sim_extras(cfg)
+
     try:
-        # --- Setup Phase ---
-        image_info = setup_image_client(cfg)
-        robot_interface = setup_robot_interface(cfg)
-
-        # Unpack interfaces for convenience
-        (
-            arm_ctrl,
-            arm_ik,
-            ee_shared_mem,
-            arm_dof,
-            ee_dof,
-            sim_state_subscriber,
-            sim_reward_subscriber,
-            episode_writer,
-            reset_pose_publisher,
-        ) = (
-            robot_interface[key]
-            for key in [
-                "arm_ctrl",
-                "arm_ik",
-                "ee_shared_mem",
-                "arm_dof",
-                "ee_dof",
-                "sim_state_subscriber",
-                "sim_reward_subscriber",
-                "episode_writer",
-                "reset_pose_publisher",
-            ]
-        )
-        tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam = (
-            image_info[key]
-            for key in [
-                "tv_img_array",
-                "wrist_img_array",
-                "tv_img_shape",
-                "wrist_img_shape",
-                "is_binocular",
-                "has_wrist_cam",
-            ]
-        )
-
-        # Get initial pose from the first step of the dataset
         from_idx = dataset.meta.episodes["dataset_from_index"][0]
         step = dataset[from_idx]
-        init_arm_pose = step["observation.state"][:arm_dof].cpu().numpy()
+        init_arm_pose = step["observation.state"][: robot.arm_dof].cpu().numpy()
 
         user_input = input("Enter 's' to initialize the robot and start the evaluation: ")
+        if user_input.lower() != "s":
+            return
+
+        logger_mp.info("Initializing robot to starting pose...")
+        robot.send_arm(init_arm_pose)
+        time.sleep(1.0)
+
+        reward_stats = {"reward_sum": 0.0, "episode_num": 0.0}
+        # Back-compat dict expected by `is_success`.
+        compat_iface = {"arm_ik": robot.arm_ik, "arm_ctrl": robot.arm_ctrl}
+
+        logger_mp.info(f"Starting evaluation loop at {cfg.frequency} Hz.")
         idx = 0
-        print(f"user_input: {user_input}")
-        full_state = None
+        while True:
+            if cfg.save_data and reward_stats["episode_num"] == 0:
+                sim["episode_writer"].create_episode()
 
-        reward_stats = {
-            "reward_sum": 0.0,
-            "episode_num": 0.0,
-        }
+            loop_start_time = time.perf_counter()
 
-        if user_input.lower() == "s":
-            # "The initial positions of the robot's arm and fingers take the initial positions during data recording."
-            logger_mp.info("Initializing robot to starting pose...")
-            tau = robot_interface["arm_ik"].solve_tau(init_arm_pose)
-            robot_interface["arm_ctrl"].ctrl_dual_arm(init_arm_pose, tau)
-            time.sleep(1.0)  # Give time for the robot to move
+            observation = robot.get_observation()
+            state_tensor = observation["observation.state"]
+            # `process_data_add` expects the raw state slices used during recording.
+            left_ee, right_ee = robot.get_ee_state()
+            full_ee_state = np.concatenate((left_ee, right_ee), axis=0) if robot.has_ee else None
+            current_arm_q = robot.get_arm_state()
 
-            # --- Run Main Loop ---
-            logger_mp.info(f"Starting evaluation loop at {cfg.frequency} Hz.")
-            while True:
-                if cfg.save_data:
-                    if reward_stats["episode_num"] == 0:
-                        episode_writer.create_episode()
-                loop_start_time = time.perf_counter()
+            action = predict_action(
+                observation,
+                policy,
+                get_safe_torch_device(policy.config.device),
+                preprocessor,
+                postprocessor,
+                policy.config.use_amp,
+                step["task"],
+                use_dataset=cfg.use_dataset,
+                robot_type=None,
+            )
+            action_np = action.cpu().numpy()
 
-                # 1. Get Observations
-                observation, current_arm_q = process_images_and_observations(
-                    tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam, arm_ctrl
-                )
-                left_ee_state = right_ee_state = np.array([])
-                if cfg.ee:
-                    with ee_shared_mem["lock"]:
-                        full_state = np.array(ee_shared_mem["state"][:])
-                        left_ee_state = full_state[:ee_dof]
-                        right_ee_state = full_state[ee_dof:]
-                state_tensor = torch.from_numpy(
-                    np.concatenate((current_arm_q, left_ee_state, right_ee_state), axis=0)
-                ).float()
-                observation["observation.state"] = state_tensor
-                # 2. Get Action from Policy
-                action = predict_action(
+            robot.execute_action(action_np)
+
+            if cfg.save_data:
+                process_data_add(
+                    sim["episode_writer"],
                     observation,
-                    policy,
-                    get_safe_torch_device(policy.config.device),
-                    preprocessor,
-                    postprocessor,
-                    policy.config.use_amp,
-                    step["task"],
-                    use_dataset=cfg.use_dataset,
-                    robot_type=None,
+                    current_arm_q,
+                    full_ee_state,
+                    action,
+                    robot.arm_dof,
+                    robot.ee_dof,
                 )
-                action_np = action.cpu().numpy()
-                # 3. Execute Action
-                arm_action = action_np[:arm_dof]
-                tau = arm_ik.solve_tau(arm_action)
-                arm_ctrl.ctrl_dual_arm(arm_action, tau)
+                is_success(
+                    sim["sim_reward_subscriber"],
+                    sim["episode_writer"],
+                    sim["reset_pose_publisher"],
+                    policy,
+                    cfg,
+                    reward_stats,
+                    init_arm_pose,
+                    compat_iface,
+                )
 
-                if cfg.ee:
-                    ee_action_start_idx = arm_dof
-                    left_ee_action = action_np[ee_action_start_idx : ee_action_start_idx + ee_dof]
-                    right_ee_action = action_np[ee_action_start_idx + ee_dof : ee_action_start_idx + 2 * ee_dof]
-                    # logger_mp.info(f"EE Action: left {left_ee_action}, right {right_ee_action}")
-
-                    if isinstance(ee_shared_mem["left"], SynchronizedArray):
-                        ee_shared_mem["left"][:] = to_list(left_ee_action)
-                        ee_shared_mem["right"][:] = to_list(right_ee_action)
-                    elif hasattr(ee_shared_mem["left"], "value") and hasattr(ee_shared_mem["right"], "value"):
-                        ee_shared_mem["left"].value = to_scalar(left_ee_action)
-                        ee_shared_mem["right"].value = to_scalar(right_ee_action)
-                # save data
-                if cfg.save_data:
-                    process_data_add(episode_writer, observation, current_arm_q, full_state, action, arm_dof, ee_dof)
-
-                    is_success(
-                        sim_reward_subscriber,
-                        episode_writer,
-                        reset_pose_publisher,
-                        policy,
-                        cfg,
-                        reward_stats,
-                        init_arm_pose,
-                        robot_interface,
-                    )
-
-                if cfg.visualization:
-                    visualization_data(idx, observation, state_tensor.numpy(), action_np, rerun_logger)
-                idx += 1
-                reward_stats["episode_num"] = reward_stats["episode_num"] + 1
-                # Maintain frequency
-                time.sleep(max(0, (1.0 / cfg.frequency) - (time.perf_counter() - loop_start_time)))
+            if rerun_logger is not None:
+                visualization_data(idx, observation, state_tensor.numpy(), action_np, rerun_logger)
+            idx += 1
+            reward_stats["episode_num"] = reward_stats["episode_num"] + 1
+            time.sleep(max(0, (1.0 / cfg.frequency) - (time.perf_counter() - loop_start_time)))
 
     except Exception as e:
         logger_mp.info(f"An error occurred: {e}")
     finally:
-        if image_info:
-            cleanup_resources(image_info)
-        # Clean up sim state subscriber if it exists
-        if "sim_state_subscriber" in locals() and sim_state_subscriber:
-            sim_state_subscriber.stop_subscribe()
-            logger_mp.info("SimStateSubscriber cleaned up")
-        if "sim_reward_subscriber" in locals() and sim_reward_subscriber:
-            sim_reward_subscriber.stop_subscribe()
-            logger_mp.info("SimRewardSubscriber cleaned up")
+        for key in ("sim_state_subscriber", "sim_reward_subscriber"):
+            sub = sim.get(key)
+            if sub is not None:
+                try:
+                    sub.stop_subscribe()
+                    logger_mp.info(f"{key} cleaned up")
+                except Exception as e:
+                    logger_mp.error(f"Failed to stop {key}: {e}")
+        robot.close()
 
 
 @parser.wrap()
 def eval_main(cfg: EvalRealConfig):
     logging.info(pformat(asdict(cfg)))
 
-    # Check device is available
     device = get_safe_torch_device(cfg.policy.device, log=True)
-
     torch.backends.cudnn.benchmark = True
     torch.backends.cuda.matmul.allow_tf32 = True
 
