@@ -145,13 +145,13 @@ class RerunLogger:
             state_tensor = step_data[self._state_key]
             entity_path = f"{self.prefix}state"
             for i, val in enumerate(state_tensor):
-                rr.log(f"{entity_path}/joint_{i}", rr.Scalar(val.item()))
+                rr.log(f"{entity_path}/joint_{i}", rr.Scalars(val.item()))
 
         if self._action_key in step_data:
             action_tensor = step_data[self._action_key]
             entity_path = f"{self.prefix}action"
             for i, val in enumerate(action_tensor):
-                rr.log(f"{entity_path}/joint_{i}", rr.Scalar(val.item()))
+                rr.log(f"{entity_path}/joint_{i}", rr.Scalars(val.item()))
 
 
 def visualization_data(idx, observation, state, action, online_logger):
