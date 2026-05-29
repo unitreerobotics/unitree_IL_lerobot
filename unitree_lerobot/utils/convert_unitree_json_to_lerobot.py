@@ -222,16 +222,12 @@ def create_empty_dataset(
         "observation.state": {
             "dtype": "float32",
             "shape": (len(motors),),
-            "names": [
-                motors,
-            ],
+            "names": motors,
         },
         "action": {
             "dtype": "float32",
             "shape": (len(motors),),
-            "names": [
-                motors,
-            ],
+            "names": motors,
         },
     }
 
@@ -239,18 +235,14 @@ def create_empty_dataset(
         features["observation.velocity"] = {
             "dtype": "float32",
             "shape": (len(motors),),
-            "names": [
-                motors,
-            ],
+            "names": motors,
         }
 
     if has_effort:
         features["observation.effort"] = {
             "dtype": "float32",
             "shape": (len(motors),),
-            "names": [
-                motors,
-            ],
+            "names": motors,
         }
 
     for cam in cameras:
