@@ -358,6 +358,16 @@ python unitree_lerobot/eval_robot/replay_robot.py \
     --visualization=true
 ```
 
+## 5.1 Dataset-Vision Hybrid Arm Inference
+
+For a temporary G1-29 setup without the training cameras and Dex3 hands, use
+the dedicated hybrid runner. It combines dataset images and Dex3 state with
+the real 14-DOF arm state, then uses only the first 14 predicted action
+dimensions. The default mode is read-only dry-run.
+
+See [`unitree_lerobot/eval_robot/HYBRID_ARM_INFERENCE.md`](unitree_lerobot/eval_robot/HYBRID_ARM_INFERENCE.md)
+for the data flow, safety constraints, and commands.
+
 # 6. 🤔 Troubleshooting
 
 | Problem                                                                                                                                                                                                                                     | Solution                                                       |

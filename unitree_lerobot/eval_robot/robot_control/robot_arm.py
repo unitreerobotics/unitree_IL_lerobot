@@ -67,7 +67,7 @@ class DataBuffer:
 
 
 class G1_29_ArmController:
-    def __init__(self, motion_mode=False, simulation_mode=False):
+    def __init__(self, motion_mode=False, simulation_mode=False, initialize_dds=True):
         logger_mp.info("Initialize G1_29_ArmController...")
         self.q_target = np.zeros(14)
         self.tauff_target = np.zeros(14)
@@ -89,10 +89,11 @@ class G1_29_ArmController:
         self._gradual_time = None
 
         # initialize lowcmd publisher and lowstate subscriber
-        if self.simulation_mode:
-            ChannelFactoryInitialize(1)
-        else:
-            ChannelFactoryInitialize(0)
+        if initialize_dds:
+            if self.simulation_mode:
+                ChannelFactoryInitialize(1)
+            else:
+                ChannelFactoryInitialize(0)
 
         if self.motion_mode:
             self.lowcmd_publisher = ChannelPublisher(kTopicLowCommand_Motion, hg_LowCmd)
@@ -120,8 +121,9 @@ class G1_29_ArmController:
         self.msg.mode_machine = self.get_mode_machine()
 
         self.all_motor_q = self.get_current_motor_q()
+        self.q_target = self.get_current_dual_arm_q().copy()
         logger_mp.info(f"Current all body motor state q:\n{self.all_motor_q} \n")
-        logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
+        logger_mp.info(f"Current two arms motor state q:\n{self.q_target}\n")
         logger_mp.info("Lock all joints except two arms...\n")
 
         arm_indices = {member.value for member in G1_29_JointArmIndex}
