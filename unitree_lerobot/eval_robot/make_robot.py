@@ -70,7 +70,7 @@ EE_CONFIG: dict[str, dict[str, Any]] = {
 }
 
 
-def setup_image_client(args: argparse.Namespace) -> dict[str, Any]:
+def setup_image_client(args: argparse.Namespace) -> tuple[ImageClient, dict[str, Any]]:
     """Initializes and starts the image client and shared memory."""
     # image client: img_config should be the same as the configuration in image_server.py (of Robot's development computing unit)
     
