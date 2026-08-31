@@ -15,7 +15,7 @@ from unitree_lerobot.eval_robot.make_robot import (
     setup_robot_interface,
     process_images_and_observations,
 )
-from unitree_lerobot.eval_robot.utils.utils import cleanup_resources, EvalRealConfig
+from unitree_lerobot.eval_robot.utils.utils import EvalRealConfig
 
 from unitree_lerobot.eval_robot.utils.rerun_visualizer import RerunLogger, visualization_data
 from unitree_lerobot.eval_robot.utils.utils import to_list, to_scalar
@@ -33,24 +33,13 @@ def replay_main(cfg: EvalRealConfig):
     if cfg.visualization:
         rerun_logger = RerunLogger()
 
-    image_info = setup_image_client(cfg)
+    image_client, camera_config = setup_image_client(cfg)
     robot_interface = setup_robot_interface(cfg)
 
     """The main control and evaluation loop."""
     # Unpack interfaces for convenience
     arm_ctrl, arm_ik, ee_shared_mem, arm_dof, ee_dof = (
         robot_interface[key] for key in ["arm_ctrl", "arm_ik", "ee_shared_mem", "arm_dof", "ee_dof"]
-    )
-    tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam = (
-        image_info[key]
-        for key in [
-            "tv_img_array",
-            "wrist_img_array",
-            "tv_img_shape",
-            "wrist_img_shape",
-            "is_binocular",
-            "has_wrist_cam",
-        ]
     )
 
     logger_mp.info(f"Starting evaluation loop at {cfg.frequency} Hz.")
@@ -101,9 +90,7 @@ def replay_main(cfg: EvalRealConfig):
                     ee_shared_mem["right"].value = to_scalar(right_ee_action)
 
             if cfg.visualization:
-                observation, current_arm_q = process_images_and_observations(
-                    tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam, arm_ctrl
-                )
+                observation, current_arm_q = process_images_and_observations(image_client, camera_config, arm_ctrl)
                 state = np.concatenate((current_arm_q, left_ee_state, right_ee_state))
 
                 visualization_data(idx, observation, state, action_np, rerun_logger)
@@ -111,7 +98,7 @@ def replay_main(cfg: EvalRealConfig):
             # Maintain frequency
             time.sleep(max(0, (1.0 / cfg.frequency) - (time.perf_counter() - loop_start_time)))
 
-    cleanup_resources(image_info)
+    image_client.close()
 
 
 if __name__ == "__main__":
